@@ -1,79 +1,55 @@
-import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useUIStore } from '../../stores/ui.store';
+// =============================================================
+// NetworkBanner — affiché en haut de l'écran quand offline
+// Disparaît automatiquement au retour de la connexion.
+// =============================================================
+import { AnimatePresence, motion } from 'framer-motion'
+import { WifiOff, Wifi } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useUIStore } from '@/stores/ui.store'
 
 export function NetworkBanner() {
-  const isOnline = useUIStore((s) => s.isOnline);
-  const [showBack, setShowBack] = useState(false);
-  // Évite d'afficher "rétabli" au premier montage
-  const isMounted = useRef(false);
+  const { networkStatus } = useUIStore()
+  const [showOnline, setShowOnline] = useState(false)
 
+  // Quand on revient online, affiche brièvement "Reconnecté" avant de masquer
   useEffect(() => {
-    if (!isMounted.current) {
-      isMounted.current = true;
-      return;
+    if (networkStatus === 'online') {
+      setShowOnline(true)
+      const timer = setTimeout(() => setShowOnline(false), 3000)
+      return () => clearTimeout(timer)
     }
-    if (isOnline) {
-      setShowBack(true);
-      const t = setTimeout(() => setShowBack(false), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [isOnline]);
+  }, [networkStatus])
+
+  const isOffline = networkStatus === 'offline'
+  const show = isOffline || showOnline
 
   return (
     <AnimatePresence>
-      {!isOnline && (
+      {show && (
         <motion.div
-          key="offline"
           initial={{ y: -48, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -48, opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-destructive text-destructive-foreground text-sm font-medium py-2.5 px-4"
+          className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 py-2 text-sm font-medium ${
+            isOffline
+              ? 'bg-red-500 text-white'
+              : 'bg-green-500 text-white'
+          }`}
         >
-          <WifiOffIcon />
-          <span>Connexion perdue — mode hors ligne</span>
-        </motion.div>
-      )}
-
-      {isOnline && showBack && (
-        <motion.div
-          key="back-online"
-          initial={{ y: -48, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -48, opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-emerald-600 text-white text-sm font-medium py-2.5 px-4"
-        >
-          <WifiIcon />
-          <span>Connexion rétablie</span>
+          {isOffline ? (
+            <>
+              <WifiOff size={14} />
+              Pas de connexion — certaines fonctionnalités sont indisponibles
+            </>
+          ) : (
+            <>
+              <Wifi size={14} />
+              Connexion rétablie
+            </>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-function WifiOffIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="1" y1="1" x2="23" y2="23" />
-      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
-      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
-      <path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
-      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-      <line x1="12" y1="20" x2="12.01" y2="20" />
-    </svg>
-  );
-}
-
-function WifiIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-      <line x1="12" y1="20" x2="12.01" y2="20" />
-    </svg>
-  );
+  )
 }

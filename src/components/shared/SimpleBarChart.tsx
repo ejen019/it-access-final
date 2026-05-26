@@ -1,45 +1,39 @@
-interface BarItem {
-  label: string;
-  value: number;
-  color?: string;
+interface Item {
+  label: string
+  value: number
+  tone?: 'primary' | 'success' | 'warning' | 'danger'
 }
 
-interface SimpleBarChartProps {
-  data: BarItem[];
-  height?: number;
-  showValues?: boolean;
+const TONE_CLASS: Record<NonNullable<Item['tone']>, string> = {
+  primary: 'bg-blue-500',
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger: 'bg-red-500',
 }
 
-export function SimpleBarChart({ data, height = 80, showValues = true }: SimpleBarChartProps) {
-  const max = Math.max(...data.map((d) => d.value), 1);
+export function SimpleBarChart({ title, items }: { title: string; items: Item[] }) {
+  const max = Math.max(1, ...items.map((i) => i.value))
 
   return (
-    <div className="flex items-end gap-1.5 w-full" style={{ height }}>
-      {data.map((item) => {
-        const pct = Math.max((item.value / max) * 100, 2);
-        return (
-          <div key={item.label} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-            {showValues && (
-              <span className="text-[10px] font-medium text-muted-foreground leading-none">
-                {item.value}
-              </span>
-            )}
-            <div className="w-full flex-1 flex items-end">
+    <div className="bg-card border border-border rounded-lg p-4">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{title}</p>
+      <div className="space-y-2.5">
+        {items.map((item) => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-foreground">{item.label}</span>
+              <span className="text-muted-foreground">{item.value}</span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
-                className="w-full rounded-t-sm transition-all duration-500 ease-out"
-                style={{
-                  height: `${pct}%`,
-                  minHeight: 4,
-                  backgroundColor: item.color ?? 'hsl(var(--primary))',
-                }}
+                className={`h-full ${TONE_CLASS[item.tone ?? 'primary']}`}
+                style={{ width: `${Math.max(4, (item.value / max) * 100)}%` }}
               />
             </div>
-            <span className="text-[10px] text-muted-foreground truncate w-full text-center leading-none">
-              {item.label}
-            </span>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
-  );
+  )
 }
+

@@ -1,175 +1,139 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
-import type { Notification } from '../../types';
+// =============================================================
+// NotificationBell — cloche avec badge de comptage
+// Actualisation automatique toutes les 60 secondes.
+// =============================================================
+import { Bell } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase/client'
+import { useAuthStore } from '@/stores/auth.store'
+import type { Notification } from '@/types'
 
 export function NotificationBell() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  // Ferme le menu si clic en dehors
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  const { profile } = useAuthStore()
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', profile?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!profile) return []
+      const { data } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', profile.id)
+        .eq('is_read', false)
         .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data as Notification[];
+        .limit(20)
+      return (data ?? []) as Notification[]
     },
-  });
+    enabled: !!profile,
+    refetchInterval: 60_000,
+  })
 
-  // Synchro temps réel
+  // Realtime : nouvelle notification → invalider le cache immédiatement
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    if (!profile?.id) return
 
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: { id: string } | null } }) => {
-      if (!user) return;
+    const channel = supabase
+      .channel(`notifications:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${profile.id}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['notifications', profile.id] })
+      })
+      .subscribe()
 
-      channel = supabase
-        .channel('notifications-realtime')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          }
-        )
-        .subscribe();
-    });
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, queryClient])
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  const unread = notifications.filter((n) => !n.is_read);
-
-  async function markAsRead(notif: Notification) {
-    if (!notif.is_read) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notif.id);
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    }
-    setOpen(false);
-    if (notif.redirect_url) navigate(notif.redirect_url);
-  }
+  const unreadCount = notifications.length
 
   async function markAllRead() {
-    const ids = unread.map((n) => n.id);
-    if (ids.length === 0) return;
-    await supabase.from('notifications').update({ is_read: true }).in('id', ids);
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    if (!profile) return
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', profile.id)
+    queryClient.invalidateQueries({ queryKey: ['notifications', profile.id] })
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        aria-label="Notifications"
+        onClick={() => setOpen(!open)}
+        className="relative p-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        aria-label={`${unreadCount} notification${unreadCount > 1 ? 's' : ''}`}
       >
-        <BellIcon />
-        {unread.length > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center leading-none">
-            {unread.length > 9 ? '9+' : unread.length}
+        <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="text-sm font-semibold text-foreground">Notifications</span>
-            {unread.length > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-xs text-primary hover:underline"
-              >
-                Tout marquer lu
-              </button>
-            )}
-          </div>
-
-          <ul className="max-h-72 overflow-y-auto divide-y divide-border">
-            {notifications.length === 0 && (
-              <li className="px-4 py-6 text-sm text-muted-foreground text-center">
-                Aucune notification
-              </li>
-            )}
-            {notifications.map((notif) => (
-              <li key={notif.id}>
-                <button
-                  onClick={() => markAsRead(notif)}
-                  className={`w-full text-left px-4 py-3 hover:bg-muted transition-colors ${
-                    !notif.is_read ? 'bg-primary/5' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!notif.is_read && (
-                      <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
-                    )}
-                    <div className={!notif.is_read ? '' : 'pl-3.5'}>
-                      <p className="text-sm font-medium text-foreground leading-snug">
-                        {notif.title}
-                      </p>
-                      {notif.body && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                          {notif.body}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {formatDate(notif.created_at)}
-                      </p>
-                    </div>
-                  </div>
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} className="text-xs text-primary hover:underline">
+                  Tout marquer comme lu
                 </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto divide-y divide-border">
+              {notifications.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Aucune notification</p>
+              ) : (
+                notifications.map((notif) => (
+                  <NotifItem
+                    key={notif.id}
+                    notif={notif}
+                    onClose={() => setOpen(false)}
+                    onRead={() => queryClient.invalidateQueries({ queryKey: ['notifications', profile?.id] })}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
-  );
+  )
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'À l\'instant';
-  if (diff < 3600) return `Il y a ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)} h`;
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-}
+function NotifItem({
+  notif,
+  onClose,
+  onRead,
+}: {
+  notif: Notification
+  onClose: () => void
+  onRead: () => void
+}) {
+  const navigate = useNavigate()
 
-function BellIcon() {
+  async function handleClick() {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id)
+    onRead()
+    if (notif.link) navigate(notif.link)
+    onClose()
+  }
+
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
+    <button onClick={handleClick} className="w-full text-left px-4 py-3 hover:bg-accent transition-colors">
+      <p className="text-sm font-medium text-foreground line-clamp-1">{notif.title}</p>
+      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.body}</p>
+      <p className="text-xs text-muted-foreground/60 mt-1">
+        {new Date(notif.created_at).toLocaleDateString('fr-FR', {
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+        })}
+      </p>
+    </button>
+  )
 }

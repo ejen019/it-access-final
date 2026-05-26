@@ -110,4 +110,4 @@ Pour l'audit détaillé et la documentation pas à pas (niveau débutant):
 - `docs/IT-ACCESS_AUDIT_ET_DOCUMENTATION.md`
 
 ## Auteur
-Projet porté par **ejen019**.
+Projet porté par **Jean- Paul N'DAYAKE** et **Thierry YERIMA**.

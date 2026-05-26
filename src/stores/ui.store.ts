@@ -1,58 +1,38 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// =============================================================
+// Store UI global — thème, sidebar, network status
+// =============================================================
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { NetworkStatus } from '../types'
 
-type Theme = 'light' | 'dark';
+type Theme = 'light' | 'dark' | 'system'
 
 interface UIState {
-  theme: Theme;
-  sidebarOpen: boolean;
-  isOnline: boolean;
+  theme: Theme
+  sidebarOpen: boolean
+  networkStatus: NetworkStatus
 
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
-  setSidebarOpen: (open: boolean) => void;
-  toggleSidebar: () => void;
-  setIsOnline: (online: boolean) => void;
+  setTheme: (theme: Theme) => void
+  toggleSidebar: () => void
+  setSidebarOpen: (open: boolean) => void
+  setNetworkStatus: (status: NetworkStatus) => void
 }
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set, get) => ({
-      theme: 'light',
+    (set) => ({
+      theme: 'system',
       sidebarOpen: true,
-      isOnline: navigator.onLine,
+      networkStatus: 'online',
 
-      setTheme: (theme) => {
-        set({ theme });
-        document.documentElement.setAttribute('data-theme', theme);
-      },
-
-      toggleTheme: () => {
-        const next = get().theme === 'light' ? 'dark' : 'light';
-        get().setTheme(next);
-      },
-
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-
+      setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-
-      setIsOnline: (online) => set({ isOnline: online }),
+      setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+      setNetworkStatus: (networkStatus) => set({ networkStatus }),
     }),
     {
-      name: 'it-access-ui',
+      name: 'itaccess-ui',
       partialize: (state) => ({ theme: state.theme }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          document.documentElement.setAttribute('data-theme', state.theme);
-        }
-      },
     }
   )
-);
-
-// Synchro événements réseau (appelé une fois dans providers.tsx)
-export function initNetworkListeners() {
-  const store = useUIStore.getState();
-  window.addEventListener('online', () => store.setIsOnline(true));
-  window.addEventListener('offline', () => store.setIsOnline(false));
-}
+)

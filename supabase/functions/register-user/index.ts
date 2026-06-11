@@ -9,14 +9,12 @@ interface RegisterPayload {
   email: string
   password: string
   nom: string
-  prenom: string
+  prenom?: string
   telephone?: string
   role: 'client' | 'technicien' | 'admin'
-  // Pour les clients
   nom_entreprise?: string
   ville?: string
   secteur?: string
-  // Pour les techniciens
   specialite?: string
 }
 
@@ -29,78 +27,52 @@ Deno.serve(async (req) => {
     const payload: RegisterPayload = await req.json()
     const { email, password, nom, prenom, telephone, role, nom_entreprise, ville, secteur, specialite } = payload
 
-    if (!email || !password || !nom || !prenom || !role) {
-      return new Response(
-        JSON.stringify({ error: 'Champs obligatoires manquants: email, password, nom, prenom, role' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!email || !password || !nom || !role) {
+      return json({ error: 'Champs obligatoires manquants: email, password, nom, role' }, 400)
     }
-
     if (!['client', 'technicien', 'admin'].includes(role)) {
-      return new Response(
-        JSON.stringify({ error: 'Rôle invalide. Valeurs acceptées: client, technicien, admin' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ error: 'Rôle invalide. Valeurs acceptées: client, technicien, admin' }, 400)
     }
-
     if (role === 'client' && !nom_entreprise) {
-      return new Response(
-        JSON.stringify({ error: 'nom_entreprise est obligatoire pour le rôle client' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ error: 'nom_entreprise est obligatoire pour le rôle client' }, 400)
     }
 
-    // Client admin avec service_role (bypass RLS)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // 1. Créer l'utilisateur Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // l'admin valide manuellement via compte_valide
+      email_confirm: true,
     })
-
     if (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ error: authError.message }, 400)
     }
 
     const userId = authData.user.id
 
-    // 2. Insérer dans utilisateurs
     const { error: userErr } = await supabaseAdmin
       .from('utilisateurs')
       .insert({
         id: userId,
         email,
         nom,
-        prenom,
+        prenom: prenom ?? null,
         telephone: telephone ?? null,
         role,
         compte_valide: false,
         est_actif: false,
       })
-
     if (userErr) {
-      // Rollback: supprimer l'utilisateur auth créé
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      return new Response(
-        JSON.stringify({ error: userErr.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json({ error: userErr.message }, 500)
     }
 
-    // 3. Créer l'entrée métier selon le rôle
     if (role === 'client') {
-      // Générer un code signature unique à 6 chiffres
       const code_signature = Math.floor(100000 + Math.random() * 900000).toString()
-
       const { error: clientErr } = await supabaseAdmin
         .from('clients')
         .insert({
@@ -110,13 +82,9 @@ Deno.serve(async (req) => {
           secteur: secteur ?? null,
           code_signature,
         })
-
       if (clientErr) {
         await supabaseAdmin.auth.admin.deleteUser(userId)
-        return new Response(
-          JSON.stringify({ error: clientErr.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ error: clientErr.message }, 500)
       }
     } else if (role === 'technicien') {
       const { error: techErr } = await supabaseAdmin
@@ -124,19 +92,14 @@ Deno.serve(async (req) => {
         .insert({
           utilisateur_id: userId,
           specialite: specialite ?? null,
-          disponible: true,
         })
-
       if (techErr) {
         await supabaseAdmin.auth.admin.deleteUser(userId)
-        return new Response(
-          JSON.stringify({ error: techErr.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return json({ error: techErr.message }, 500)
       }
     }
 
-    // 4. Notifier les admins qu'un nouveau compte attend validation
+    // Notifier les admins qu'un nouveau compte attend validation
     const { data: admins } = await supabaseAdmin
       .from('utilisateurs')
       .select('id')
@@ -144,24 +107,27 @@ Deno.serve(async (req) => {
       .eq('est_actif', true)
 
     if (admins && admins.length > 0) {
+      const libelle = role === 'client' ? (nom_entreprise ?? 'Entreprise') : 'Technicien'
       const notifications = admins.map((admin: { id: string }) => ({
         utilisateur_id: admin.id,
+        type: 'nouveau_compte_en_attente',
         titre: 'Nouveau compte à valider',
-        corps: `${prenom} ${nom} (${role === 'client' ? nom_entreprise : specialite ?? 'Technicien'}) vient de s'inscrire.`,
-        lien: role === 'client' ? '/users?tab=pending' : '/users?tab=pending',
+        corps: `${nom} (${libelle}) vient de s'inscrire.`,
+        lien: null,
       }))
       await supabaseAdmin.from('notifications').insert(notifications)
     }
 
-    return new Response(
-      JSON.stringify({ success: true, userId }),
-      { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ success: true, userId }, 201)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur interne'
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json({ error: message }, 500)
   }
 })
+
+function json(body: Record<string, unknown>, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}

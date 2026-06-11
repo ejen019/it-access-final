@@ -75,7 +75,7 @@ export const router = createBrowserRouter([
   {
     path: '/sudo',
     element: (
-      <ProtectedRoute allowedRoles={['sudo']}>
+      <ProtectedRoute allowedRoles={['super_admin']}>
         <SudoLayout />
       </ProtectedRoute>
     ),
@@ -138,7 +138,7 @@ export const router = createBrowserRouter([
   {
     path: '/entreprise',
     element: (
-      <ProtectedRoute allowedRoles={['entreprise']}>
+      <ProtectedRoute allowedRoles={['client']}>
         <EntrepriseLayout />
       </ProtectedRoute>
     ),

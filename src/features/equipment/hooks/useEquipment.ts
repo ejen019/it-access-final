@@ -63,6 +63,7 @@ export type EquipementInput = {
   notes?: string
   photos?: string[]
   cree_par: string
+  etat?: 'operationnel' | 'maintenance' | 'en_panne'
 }
 
 export function useCreerEquipement() {
@@ -73,7 +74,7 @@ export function useCreerEquipement() {
         .from('equipements')
         .insert({
           ...input,
-          etat: 'operationnel',
+          etat: input.etat ?? 'operationnel',
           photos: input.photos ?? [],
           qr_code: 'pending',
         })

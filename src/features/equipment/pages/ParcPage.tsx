@@ -7,11 +7,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Monitor, Search } from 'lucide-react'
+import { Plus, Monitor, Search, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import { useClientEquipement } from '../hooks/useEquipment'
 import { EquipmentForm } from '../components/EquipmentForm'
+import { BulkImportModal } from '../components/BulkImportModal'
 import type { Equipement } from '@/types'
 
 async function fetchMyClientId(userId: string): Promise<string | null> {
@@ -73,8 +74,9 @@ export function ParcPage() {
   const { profile } = useAuthStore()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'operationnel' | 'en_panne'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'operationnel' | 'en_panne' | 'maintenance'>('all')
 
   const { data: clientId } = useQuery({
     queryKey: ['my-client-id', profile?.id],
@@ -115,13 +117,22 @@ export function ParcPage() {
           </p>
         </div>
         {clientId && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
-          >
-            <Plus size={16} />
-            Ajouter
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              <Upload size={15} />
+              Import CSV
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium"
+            >
+              <Plus size={15} />
+              Ajouter
+            </button>
+          </div>
         )}
       </div>
 
@@ -138,17 +149,17 @@ export function ParcPage() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {(['all', 'operationnel', 'en_panne'] as const).map((s) => (
+          {(['all', 'operationnel', 'maintenance', 'en_panne'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                 filterStatus === s
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-white'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              {s === 'all' ? 'Tous' : s === 'operationnel' ? 'Opérationnels' : 'En panne'}
+              {s === 'all' ? 'Tous' : s === 'operationnel' ? 'Opérationnels' : s === 'maintenance' ? 'En validation' : 'En panne'}
             </button>
           ))}
         </div>
@@ -178,12 +189,20 @@ export function ParcPage() {
         </div>
       )}
 
+      {/* Notice équipements en validation */}
+      {equipment.some(e => e.etat === 'maintenance') && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
+          Certains équipements sont en attente de validation par l'administrateur (affichés comme "En validation").
+        </div>
+      )}
+
       {/* Modal ajout équipement */}
       {showForm && clientId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40">
           <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-5 pt-5 pb-3 border-b border-border">
               <h2 className="font-semibold text-foreground">Nouvel équipement</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">L'équipement sera soumis à validation par l'administrateur.</p>
             </div>
             <div className="p-5">
               <EquipmentForm
@@ -197,6 +216,18 @@ export function ParcPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal import CSV */}
+      {showImport && clientId && (
+        <BulkImportModal
+          clientId={clientId}
+          pendingValidation
+          onClose={() => {
+            setShowImport(false)
+            queryClient.invalidateQueries({ queryKey: ['equipements', clientId] })
+          }}
+        />
       )}
     </div>
   )

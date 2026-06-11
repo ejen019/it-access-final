@@ -25,6 +25,7 @@ interface ExtractedEquipment {
 interface Props {
   clientId: string
   onClose: () => void
+  pendingValidation?: boolean
 }
 
 const GROQ_SYSTEM_PROMPT = `Tu es un extracteur STRICT de données pour un système de gestion d'équipements IT.
@@ -109,7 +110,7 @@ async function extractWithGroq(fileContent: string): Promise<ExtractedEquipment[
     }))
 }
 
-export function BulkImportModal({ clientId, onClose }: Props) {
+export function BulkImportModal({ clientId, onClose, pendingValidation = false }: Props) {
   const { profile } = useAuthStore()
   const createMutation = useCreerEquipement()
 
@@ -179,6 +180,7 @@ export function BulkImportModal({ clientId, onClose }: Props) {
           emplacement: eq.location,
           notes: eq.notes,
           cree_par: profile!.id,
+          etat: pendingValidation ? 'maintenance' : 'operationnel',
         })
         count++
         setImportedCount(count)
@@ -222,9 +224,13 @@ export function BulkImportModal({ clientId, onClose }: Props) {
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Importez un fichier d'inventaire (CSV, TXT, ou tout fichier texte). L'IA Groq (Llama 3.3 70B)
-                extraira automatiquement les équipements détectés.
+                Importez un fichier d'inventaire (CSV, TXT, ou tout fichier texte). L'IA Groq (Llama 3.3 70B) extraira automatiquement les équipements détectés.
               </p>
+              {pendingValidation && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-400">
+                  Les équipements importés seront soumis à validation par l'administrateur avant d'être activés.
+                </div>
+              )}
 
               {error && (
                 <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -346,7 +352,9 @@ export function BulkImportModal({ clientId, onClose }: Props) {
               <div className="text-center">
                 <p className="text-lg font-semibold text-foreground">{importedCount} équipements importés</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Ils apparaissent maintenant dans la liste des équipements.
+                  {pendingValidation
+                    ? "En attente de validation par l'administrateur."
+                    : 'Ils apparaissent maintenant dans la liste.'}
                 </p>
               </div>
               <button

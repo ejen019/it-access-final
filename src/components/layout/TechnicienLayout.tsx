@@ -1,6 +1,3 @@
-// =============================================================
-// TechnicienLayout — layout mobile-first pour les techniciens
-// =============================================================
 import { Outlet, NavLink } from 'react-router-dom'
 import { LayoutDashboard, Wrench, QrCode, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
@@ -16,43 +13,44 @@ const NAV_ITEMS = [
 
 export function TechnicienLayout() {
   const { profile } = useAuthStore()
+  const initial = (profile?.prenom?.[0] ?? profile?.nom?.[0] ?? 'T').toUpperCase()
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 flex-shrink-0 shadow-sm">
-        <span className="text-sm font-bold text-foreground">IT-Access</span>
+      <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
+            <span className="text-[10px] font-bold text-white leading-none">IT</span>
+          </div>
+          <span className="text-[13px] font-semibold text-foreground">IT-Access</span>
+        </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
-          <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white text-sm font-bold">
-            {profile?.full_name?.[0]?.toUpperCase() ?? 'T'}
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-sm font-semibold">
+            {initial}
           </div>
         </div>
       </header>
 
-      {/* Contenu scrollable */}
       <main className="flex-1 overflow-y-auto pb-20">
-        <Outlet />
+        <div className="max-w-2xl mx-auto px-4 py-5">
+          <Outlet />
+        </div>
       </main>
 
-      {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-1 z-50 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-2 z-50">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
+          <NavLink key={to} to={to}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-xl mx-0.5 transition-all ${
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
+              `flex flex-col items-center gap-1 min-w-0 flex-1 py-2 rounded-xl mx-0.5 transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-                <span className={`text-[10px] font-medium truncate ${isActive ? 'font-semibold' : ''}`}>{label}</span>
+                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+                <span className={`text-[10px] truncate ${isActive ? 'font-semibold' : 'font-normal'}`}>{label}</span>
               </>
             )}
           </NavLink>

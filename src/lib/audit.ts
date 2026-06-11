@@ -18,12 +18,12 @@ export async function logAuditAction(payload: AuditPayload) {
     .eq('id', me.user.id)
     .single()
 
-  await supabase.from('audit_logs').insert({
-    actor_id: me.user.id,
-    actor_role: profile?.role ?? null,
+  await supabase.from('journaux_audit').insert({
+    acteur_id: me.user.id,
+    role_acteur: profile?.role ?? null,
     action: payload.action,
-    entity_type: payload.entityType,
-    entity_id: payload.entityId ?? null,
+    type_entite: payload.entityType,
+    entite_id: payload.entityId ?? null,
     details: (payload.details ?? {}) as Json,
   })
 }

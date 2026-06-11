@@ -18,12 +18,12 @@ export function AuditLogsPage() {
   const [search, setSearch] = useState('')
 
   const { data: logs = [], isLoading, error } = useQuery({
-    queryKey: ['audit-logs'],
+    queryKey: ['journaux-audit'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('audit_logs')
-        .select('id, actor_id, actor_role, action, entity_type, entity_id, details, created_at, utilisateurs(nom, prenom, email)')
-        .order('created_at', { ascending: false })
+        .from('journaux_audit')
+        .select('id, acteur_id, role_acteur, action, type_entite, entite_id, details, cree_le, utilisateurs(nom, prenom, email)')
+        .order('cree_le', { ascending: false })
         .limit(500)
       if (error) throw error
       return data ?? []
@@ -35,7 +35,7 @@ export function AuditLogsPage() {
     if (!q) return logs
     return logs.filter((log: any) => {
       const actor = `${log.utilisateurs?.prenom ?? ''} ${log.utilisateurs?.nom ?? ''} ${log.utilisateurs?.email ?? ''}`.toLowerCase()
-      const line = `${log.action} ${log.entity_type} ${log.entity_id ?? ''} ${log.actor_role ?? ''}`.toLowerCase()
+      const line = `${log.action} ${log.type_entite} ${log.entite_id ?? ''} ${log.role_acteur ?? ''}`.toLowerCase()
       return actor.includes(q) || line.includes(q)
     })
   }, [logs, search])
@@ -84,18 +84,18 @@ export function AuditLogsPage() {
               <tbody>
                 {filtered.map((log: any) => (
                   <tr key={log.id} className="border-b border-border align-top hover:bg-accent/30">
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(log.created_at)}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(log.cree_le)}</td>
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-foreground">
                         {log.utilisateurs ? `${log.utilisateurs.prenom ?? ''} ${log.utilisateurs.nom}`.trim() : 'Utilisateur supprimé'}
                       </p>
-                      <p className="text-xs text-muted-foreground">{log.utilisateurs?.email ?? log.actor_id}</p>
-                      <p className="text-[11px] text-muted-foreground uppercase mt-0.5">{log.actor_role ?? 'inconnu'}</p>
+                      <p className="text-xs text-muted-foreground">{log.utilisateurs?.email ?? log.acteur_id}</p>
+                      <p className="text-[11px] text-muted-foreground uppercase mt-0.5">{log.role_acteur ?? 'inconnu'}</p>
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{log.action}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      <p>{log.entity_type}</p>
-                      {log.entity_id && <p className="text-xs">{log.entity_id}</p>}
+                      <p>{log.type_entite}</p>
+                      {log.entite_id && <p className="text-xs">{log.entite_id}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground max-w-[360px]">
                       <pre className="whitespace-pre-wrap break-words font-mono text-[11px]">

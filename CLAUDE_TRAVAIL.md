@@ -58,7 +58,14 @@ Le user veut (message courant) :
 14. ✅ **Couleurs des formulaires harmonisées** : sélecteurs d'urgence (interventions + signalement panne) et plans d'abonnement (contrats) ne sont plus des aplats vifs (orange `bg-amber-500`, `bg-emerald-50` sans dark…) → palette de badges sobre avec variantes dark. ContractsPage : bandeau de couleur pleine des cartes → en-tête sobre + pills teintées ; alerte/boutons harmonisés ; liste en grille 2 colonnes.
 15. ✅ **EquipmentAdminPage** : ligne de mini-stats (total/opérationnels/maintenance/panne), état vide avec icône + CTA, skeleton de chargement.
 
+## Session polish formulaires + vue technicien web (livré)
+16. ✅ **Modale intervention redesignée** : header (icône carrée bleue + sous-titre) + bouton **X**, corps **scrollable interne** (`flex flex-col` + `max-h-[calc(100vh-2rem)]`), footer collant avec bordure. Plus joli et bien rangé.
+17. ✅ **Fermeture au clic extérieur** ajoutée à toutes les modales principales (intervention create+cancel, contrat, équipement create/edit/import/delete, passeport panne/edit, users/sudo delete, créer-admin) : `onClick={onClose}` sur l'overlay + `stopPropagation` sur le panneau. Overlay uniformisé `bg-black/50 backdrop-blur-sm`.
+18. ✅ **Icône Historique** = même style que l'en-tête de formulaire (`rounded-xl gradient-primary` + icône blanche).
+19. ✅ **Vue technicien web** : `TechnicienLayout` désormais responsive — **sidebar desktop** (nav + profil + déconnexion, style AdminLayout) sur `md+`, **bottom-nav conservée** sur mobile (`md:hidden`). Header desktop = salutation + cloche ; mobile = marque + avatar. Contenu `max-w-4xl` centré sur desktop. Bottom-nav repassée en `z-40` (sous les modales z-50).
+
 ## Reste éventuel
+- Vue web pour `EntrepriseLayout` (même pattern que technicien) si demandé.
 - Refonte d'autres listes (`SudoEquipmentPage`, `SudoUsersPage`, `UsersPage`) au même standard si redemandé.
 - Prérequis Realtime : table `messages` doit avoir UPDATE activé dans la publication realtime (pour propager `lu`). Presence ne nécessite pas de DB.
 - **Le user teste avant validation** (son `npm run dev` sur :5173, hot-reload — le preview MCP ne peut pas binder).

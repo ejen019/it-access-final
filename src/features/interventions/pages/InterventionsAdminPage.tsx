@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, Clock, Ban, Wrench, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Clock, Ban, Wrench, AlertTriangle, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import {
@@ -171,18 +171,35 @@ function CreateModal({ onClose }: CreateModalProps) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
-      <div className="flex min-h-full items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-lg my-4 shadow-xl">
-        <div className="px-5 pt-5 pb-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
-              <Plus size={16} className="text-white" />
-            </div>
-            <h2 className="font-semibold text-foreground">Nouvelle intervention</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col shadow-xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
+            <Plus size={18} className="text-white" />
           </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-foreground leading-tight">Nouvelle intervention</h2>
+            <p className="text-xs text-muted-foreground">Planifiez une réparation ou une maintenance</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors flex-shrink-0"
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {error && (
             <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
               {error}
@@ -331,7 +348,9 @@ function CreateModal({ onClose }: CreateModalProps) {
             )}
           </div>
 
-          <div className="flex gap-3 pt-1">
+          </div>
+
+          <div className="flex gap-3 px-5 py-4 border-t border-border flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -348,7 +367,6 @@ function CreateModal({ onClose }: CreateModalProps) {
             </button>
           </div>
         </form>
-      </div>
       </div>
     </div>
   )
@@ -599,8 +617,14 @@ export function InterventionsAdminPage() {
 
       {/* Modal confirmation annulation */}
       {cancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setCancelConfirm(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
                 <Ban size={18} className="text-destructive" />

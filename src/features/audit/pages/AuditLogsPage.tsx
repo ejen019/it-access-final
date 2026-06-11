@@ -98,8 +98,8 @@ export function AuditLogsPage() {
       {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <History size={18} className="text-primary" />
+          <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
+            <History size={18} className="text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Historique global</h1>

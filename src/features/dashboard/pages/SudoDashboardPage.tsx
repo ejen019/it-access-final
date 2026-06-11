@@ -537,8 +537,11 @@ export function SudoDashboardPage() {
 
       {/* ===== MODAL CRÉATION ADMIN ===== */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => { setShowCreate(false); setFormError(null) }}
+        >
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
                 <Shield size={15} className="text-primary" />

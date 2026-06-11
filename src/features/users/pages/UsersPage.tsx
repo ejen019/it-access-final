@@ -234,8 +234,11 @@ export function UsersPage() {
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-foreground">Supprimer cet utilisateur ?</h3>
             <p className="text-sm text-muted-foreground">Action irréversible. Toutes les données associées seront perdues.</p>
             <div className="flex gap-3">

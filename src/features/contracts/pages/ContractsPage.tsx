@@ -112,9 +112,12 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="flex min-h-full items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md my-4 p-6 space-y-5 shadow-xl">
+      <div
+        className="bg-card border border-border rounded-2xl w-full max-w-md my-4 p-6 space-y-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
             <Plus size={16} className="text-white" />

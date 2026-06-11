@@ -257,8 +257,11 @@ export function EquipmentAdminPage() {
 
       {/* Modal import IA */}
       {showImport && !importClientId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => { setShowImport(false); setPendingImportClient('') }}
+        >
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-foreground">Import IA — Entreprise cible</h3>
             <select
               value={pendingImportClient}
@@ -297,8 +300,11 @@ export function EquipmentAdminPage() {
 
       {/* Modal création équipement */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => { setShowCreate(false); setCreateClientId('') }}
+        >
+          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-3 border-b border-border space-y-3">
               <h2 className="font-semibold text-foreground">Nouvel équipement</h2>
               <select
@@ -336,8 +342,11 @@ export function EquipmentAdminPage() {
 
       {/* Modal édition équipement */}
       {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setEditTarget(null)}
+        >
+          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-3 border-b border-border">
               <h2 className="font-semibold text-foreground">Modifier l'équipement</h2>
               <p className="text-xs text-muted-foreground mt-0.5">{(editTarget as any).clients?.nom_entreprise ?? ''}</p>
@@ -356,8 +365,11 @@ export function EquipmentAdminPage() {
 
       {/* Modal confirmation suppression */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-foreground">Supprimer l'équipement ?</h3>
             <p className="text-sm text-muted-foreground">
               <strong>{deleteConfirm.nom}</strong> sera définitivement supprimé.

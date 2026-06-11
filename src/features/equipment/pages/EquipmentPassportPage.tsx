@@ -94,8 +94,11 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40">
-      <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 pt-5 pb-3 border-b border-border">
           <h2 className="font-semibold text-foreground">Signaler une panne</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{equipment.nom}</p>
@@ -367,8 +370,11 @@ export function EquipmentPassportPage() {
 
       {/* Modal édition */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40">
-          <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowEdit(false)}
+        >
+          <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-3 border-b border-border">
               <h2 className="font-semibold text-foreground">{"Modifier l'équipement"}</h2>
             </div>

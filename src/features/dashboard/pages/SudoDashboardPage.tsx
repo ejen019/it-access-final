@@ -11,7 +11,8 @@ import {
   FileText, AlertTriangle, BarChart3, RefreshCw,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
+import { DonutChart } from '@/components/shared/DonutChart'
+import { BarChart } from '@/components/shared/BarChart'
 
 type AdminForm = { email: string; password: string; nom: string; prenom: string }
 
@@ -40,16 +41,25 @@ async function fetchSudoStats() {
       .in('role', ['client', 'technicien'])
       .order('cree_le', { ascending: false })
       .limit(10),
+    supabase.from('equipements').select('*', { count: 'exact', head: true }).eq('etat', 'en_panne'),
+    supabase.from('equipements').select('*', { count: 'exact', head: true }).eq('etat', 'maintenance'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'planifiee'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'en_cours'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'terminee'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'signee'),
   ])
   for (const r of results) {
     if (r.error) throw r.error
   }
-  const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10] = results
+  const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16] = results
+  const equipment = r3.count ?? 0
+  const equipPanne = r11.count ?? 0
+  const equipMaintenance = r12.count ?? 0
   return {
     companies:             r0.count ?? 0,
     admins:                r1.count ?? 0,
     techs:                 r2.count ?? 0,
-    equipment:             r3.count ?? 0,
+    equipment,
     interventions:         r4.count ?? 0,
     contracts:             r5.count ?? 0,
     pendingUsers:          r6.count ?? 0,
@@ -57,6 +67,13 @@ async function fetchSudoStats() {
     adminList:             r8.data ?? [],
     recentInterventions:   r9.data ?? [],
     pendingList:           r10.data ?? [],
+    equipPanne,
+    equipMaintenance,
+    equipOperational:      Math.max(0, equipment - equipPanne - equipMaintenance),
+    intPlanifiee:          r13.count ?? 0,
+    intEnCours:            r14.count ?? 0,
+    intTerminee:           r15.count ?? 0,
+    intSignee:             r16.count ?? 0,
   }
 }
 
@@ -260,15 +277,26 @@ export function SudoDashboardPage() {
             <StatCard icon={AlertTriangle} label="Critiques actives"  value={stats.criticalInterventions} alert />
             <StatCard icon={Users}         label="Comptes en attente" value={stats.pendingUsers} alert />
           </div>
-          <SimpleBarChart
-            title="Distribution globale"
-            items={[
-              { label: 'Entreprises', value: stats.companies },
-              { label: 'Techniciens', value: stats.techs, tone: 'success' },
-              { label: 'Équipements', value: stats.equipment, tone: 'primary' },
-              { label: 'Interventions', value: stats.interventions, tone: 'warning' },
-            ]}
-          />
+          <div className="grid gap-4 md:grid-cols-2">
+            <DonutChart
+              title="Parc équipements par état"
+              centerLabel="Équip."
+              data={[
+                { label: 'Opérationnels', value: stats.equipOperational, color: '#10b981' },
+                { label: 'Maintenance', value: stats.equipMaintenance, color: '#f59e0b' },
+                { label: 'En panne', value: stats.equipPanne, color: '#ef4444' },
+              ]}
+            />
+            <BarChart
+              title="Interventions par statut"
+              data={[
+                { label: 'Planif.', value: stats.intPlanifiee, color: '#3b82f6' },
+                { label: 'En cours', value: stats.intEnCours, color: '#f59e0b' },
+                { label: 'À signer', value: stats.intTerminee, color: '#a855f7' },
+                { label: 'Clôturées', value: stats.intSignee, color: '#10b981' },
+              ]}
+            />
+          </div>
 
           <div className="bg-card border border-border rounded-lg p-4">
             <p className="text-xs font-medium text-muted-foreground mb-3">Accès modération</p>

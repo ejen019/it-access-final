@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import { useClientEquipement } from '@/features/equipment/hooks/useEquipment'
 import { useInterventionsClient } from '@/features/interventions/hooks/useInterventions'
-import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
+import { DonutChart } from '@/components/shared/DonutChart'
+import { BarChart } from '@/components/shared/BarChart'
 
 async function fetchMyCompany(userId: string) {
   const { data } = await supabase
@@ -85,8 +86,13 @@ export function EntrepriseDashboardPage() {
   const { data: interventions = [] } = useInterventionsClient(client?.id)
 
   const pannes       = equipment.filter((e: any) => e.etat === 'en_panne').length
+  const maintenance  = equipment.filter((e: any) => e.etat === 'maintenance').length
+  const operationnel = Math.max(0, equipment.length - pannes - maintenance)
   const toSign       = interventions.filter((i: any) => i.statut === 'terminee').length
   const activeInterv = interventions.filter((i: any) => ['planifiee', 'en_cours'].includes(i.statut)).length
+  const planifiees   = interventions.filter((i: any) => i.statut === 'planifiee').length
+  const enCours      = interventions.filter((i: any) => i.statut === 'en_cours').length
+  const cloturees    = interventions.filter((i: any) => i.statut === 'signee').length
   const recentes     = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   async function copyCode() {
@@ -156,15 +162,26 @@ export function EntrepriseDashboardPage() {
           alert={activeInterv > 0}
         />
       </div>
-      <SimpleBarChart
-        title="Utilisation"
-        items={[
-          { label: 'Equipements total', value: equipment.length, tone: 'primary' },
-          { label: 'Equipements en panne', value: pannes, tone: 'danger' },
-          { label: 'Interventions actives', value: activeInterv, tone: 'warning' },
-          { label: 'Interventions a signer', value: toSign, tone: 'success' },
-        ]}
-      />
+      <div className="grid gap-3 md:grid-cols-2">
+        <DonutChart
+          title="Mon parc par état"
+          centerLabel="Équip."
+          data={[
+            { label: 'Opérationnels', value: operationnel, color: '#10b981' },
+            { label: 'Maintenance', value: maintenance, color: '#f59e0b' },
+            { label: 'En panne', value: pannes, color: '#ef4444' },
+          ]}
+        />
+        <BarChart
+          title="Mes interventions par statut"
+          data={[
+            { label: 'Planif.', value: planifiees, color: '#3b82f6' },
+            { label: 'En cours', value: enCours, color: '#f59e0b' },
+            { label: 'À signer', value: toSign, color: '#a855f7' },
+            { label: 'Clôturées', value: cloturees, color: '#10b981' },
+          ]}
+        />
+      </div>
 
       {/* Accès rapide */}
       <div>

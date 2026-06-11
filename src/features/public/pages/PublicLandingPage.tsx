@@ -87,11 +87,7 @@ export function PublicLandingPage() {
       <main className="max-w-5xl mx-auto px-4">
 
         {/* Hero */}
-        <section className="pt-20 pb-16 text-center space-y-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/8 text-primary text-[12px] font-medium rounded-full border border-primary/15">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            Plateforme SaaS de maintenance informatique
-          </div>
+        <section className="pt-10 pb-16 text-center space-y-6">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground leading-tight max-w-2xl mx-auto tracking-tight">
             Gérez votre parc IT
             <span className="text-primary block">simplement.</span>
@@ -101,7 +97,7 @@ export function PublicLandingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link to="/inscription" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
-              Démarrer gratuitement <ArrowRight size={15} />
+              Démarrer gratuitement 
             </Link>
             <Link to="/connexion" className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
               J'ai déjà un compte <ChevronRight size={15} />

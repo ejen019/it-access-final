@@ -108,6 +108,7 @@ export const router = createBrowserRouter([
       { path: 'utilisateurs',     element: <UsersPage /> },
       { path: 'equipements',      element: <EquipmentAdminPage /> },
       { path: 'equipements/:id',  element: <EquipmentPassportPage /> },
+      { path: 'scanner',          element: <ScanPage /> },
       { path: 'interventions',    element: <InterventionsAdminPage /> },
       { path: 'interventions/:id', element: <InterventionDetailPage /> },
       { path: 'contrats',         element: <ContractsPage /> },

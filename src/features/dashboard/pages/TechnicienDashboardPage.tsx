@@ -8,7 +8,8 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useInterventionsTechnicien } from '@/features/interventions/hooks/useInterventions'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
+import { DonutChart } from '@/components/shared/DonutChart'
+import { BarChart } from '@/components/shared/BarChart'
 
 async function fetchAssignedCompanies(profileId: string) {
   const { data: tech } = await supabase
@@ -71,6 +72,7 @@ export function TechnicienDashboardPage() {
   const enAttente = interventions.filter((i: any) => i.statut === 'terminee').length
   const cloturees = interventions.filter((i: any) => i.statut === 'signee').length
   const urgentes  = interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut))
+  const annulees  = interventions.filter((i: any) => i.statut === 'annulee').length
   const recentes  = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   return (
@@ -114,15 +116,28 @@ export function TechnicienDashboardPage() {
           <StatCard icon={Wrench} label="Clôturées"            value={cloturees} />
         </div>
       </div>
-      <SimpleBarChart
-        title="Flux des missions"
-        items={[
-          { label: 'Actives', value: active, tone: 'warning' },
-          { label: 'En cours', value: enCours, tone: 'primary' },
-          { label: 'En attente signature', value: enAttente, tone: 'danger' },
-          { label: 'Cloturees', value: cloturees, tone: 'success' },
-        ]}
-      />
+      <div className="grid gap-3 md:grid-cols-2">
+        <DonutChart
+          title="Répartition de mes missions"
+          centerLabel="Missions"
+          data={[
+            { label: 'Planifiées', value: active, color: '#3b82f6' },
+            { label: 'En cours', value: enCours, color: '#f59e0b' },
+            { label: 'À signer', value: enAttente, color: '#a855f7' },
+            { label: 'Clôturées', value: cloturees, color: '#10b981' },
+            { label: 'Annulées', value: annulees, color: '#94a3b8' },
+          ]}
+        />
+        <BarChart
+          title="Flux des missions"
+          data={[
+            { label: 'Planif.', value: active, color: '#3b82f6' },
+            { label: 'En cours', value: enCours, color: '#f59e0b' },
+            { label: 'À signer', value: enAttente, color: '#a855f7' },
+            { label: 'Clôturées', value: cloturees, color: '#10b981' },
+          ]}
+        />
+      </div>
 
       {/* Accès rapide */}
       <div>

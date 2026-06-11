@@ -4,7 +4,6 @@ import { LayoutDashboard, Users, Monitor, Wrench, LogOut, History, Menu, X } fro
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const NAV_ITEMS = [
   { to: '/sudo/dashboard',     icon: LayoutDashboard, label: 'Vue globale' },
@@ -109,7 +108,6 @@ export function SudoLayout() {
               Mode <span className="text-violet-600 dark:text-violet-400 font-medium">Super Admin</span>
             </p>
           </div>
-          <ThemeToggle />
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-y-auto">

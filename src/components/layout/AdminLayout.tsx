@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Monitor, Wrench,
-  FileText, MessageSquare, LogOut, History, Menu, X,
+  FileText, MessageSquare, LogOut, History, Menu, X, QrCode,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const NAV_ITEMS = [
   { to: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/utilisateurs',  icon: Users,           label: 'Utilisateurs' },
   { to: '/admin/equipements',   icon: Monitor,         label: 'Équipements' },
+  { to: '/admin/scanner',       icon: QrCode,          label: 'Scanner' },
   { to: '/admin/interventions', icon: Wrench,          label: 'Interventions' },
   { to: '/admin/contrats',      icon: FileText,        label: 'Contrats' },
   { to: '/admin/messagerie',    icon: MessageSquare,   label: 'Messagerie' },
@@ -120,7 +120,6 @@ export function AdminLayout() {
               Bonjour, <span className="text-foreground font-medium">{profile?.prenom ?? displayName}</span>
             </p>
           </div>
-          <ThemeToggle />
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-y-auto">

@@ -5,6 +5,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QrCode, AlertCircle, CheckCircle2, Loader2, Camera } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth.store'
+
+// Chemin du passeport équipement selon le rôle connecté
+function passportPath(role: string | undefined, equipmentId: string): string {
+  if (role === 'admin' || role === 'super_admin') return `/admin/equipements/${equipmentId}`
+  if (role === 'client') return `/entreprise/parc/${equipmentId}`
+  return `/technicien/equipement/${equipmentId}`
+}
 
 // URL du passeport : ${origin}/equipement/:id
 function extractEquipmentId(url: string): string | null {
@@ -19,6 +27,7 @@ function extractEquipmentId(url: string): string | null {
 
 export function ScanPage() {
   const navigate = useNavigate()
+  const { profile } = useAuthStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'idle' | 'requesting' | 'scanning' | 'success' | 'error' | 'unsupported'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -75,7 +84,7 @@ export function ScanPage() {
               setStatus('success')
               stream.getTracks().forEach((t) => t.stop())
               if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-              setTimeout(() => navigate(`/technicien/equipement/${equipmentId}`), 600)
+              setTimeout(() => navigate(passportPath(profile?.role, equipmentId)), 600)
             } else {
               animFrameRef.current = requestAnimationFrame(scan)
             }
@@ -111,7 +120,7 @@ export function ScanPage() {
     e.preventDefault()
     const trimmed = manualId.trim()
     if (!trimmed) return
-    navigate(`/technicien/equipement/${trimmed}`)
+    navigate(passportPath(profile?.role, trimmed))
   }
 
   return (

@@ -10,7 +10,8 @@ import {
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
-import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
+import { DonutChart } from '@/components/shared/DonutChart'
+import { BarChart } from '@/components/shared/BarChart'
 
 // ----- Requêtes -----
 
@@ -27,6 +28,12 @@ async function fetchAdminStats() {
     supabase.from('equipements').select('*', { count: 'exact', head: true }),
     supabase.from('equipements').select('*', { count: 'exact', head: true })
       .eq('etat', 'en_panne'),
+    supabase.from('equipements').select('*', { count: 'exact', head: true })
+      .eq('etat', 'maintenance'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'planifiee'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'en_cours'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'terminee'),
+    supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'signee'),
     supabase.from('interventions')
       .select('id, titre, urgence, statut, cree_le, clients(nom_entreprise)')
       .order('cree_le', { ascending: false }).limit(5),
@@ -35,16 +42,25 @@ async function fetchAdminStats() {
   for (const r of results) {
     if (r.error) throw r.error
   }
-  const [r0, r1, r2, r3, r4, r5, r6, r7] = results
+  const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12] = results
+  const totalEquipment = r5.count ?? 0
+  const brokenEquipment = r6.count ?? 0
+  const maintenanceEquipment = r7.count ?? 0
   return {
     totalCompanies:        r0.count ?? 0,
     totalTechnicians:      r1.count ?? 0,
     pendingValidation:     r2.count ?? 0,
     activeInterventions:   r3.count ?? 0,
     criticalInterventions: r4.count ?? 0,
-    totalEquipment:        r5.count ?? 0,
-    brokenEquipment:       r6.count ?? 0,
-    recentInterventions:   r7.data ?? [],
+    totalEquipment,
+    brokenEquipment,
+    maintenanceEquipment,
+    operationalEquipment:  Math.max(0, totalEquipment - brokenEquipment - maintenanceEquipment),
+    intPlanifiee:          r8.count ?? 0,
+    intEnCours:            r9.count ?? 0,
+    intTerminee:           r10.count ?? 0,
+    intSignee:             r11.count ?? 0,
+    recentInterventions:   r12.data ?? [],
   }
 }
 
@@ -153,15 +169,27 @@ export function AdminDashboardPage() {
         <StatCard icon={AlertTriangle} label="Critiques actives" value={s.criticalInterventions} alert />
         <StatCard icon={Clock}         label="En attente valid." value={s.pendingValidation} alert />
       </div>
-      <SimpleBarChart
-        title="Etat operationnel"
-        items={[
-          { label: 'Equipements total', value: s.totalEquipment },
-          { label: 'Equipements en panne', value: s.brokenEquipment, tone: 'danger' },
-          { label: 'Interventions actives', value: s.activeInterventions, tone: 'warning' },
-          { label: 'Interventions critiques', value: s.criticalInterventions, tone: 'danger' },
-        ]}
-      />
+      {/* Graphes vraies données */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <DonutChart
+          title="Parc équipements par état"
+          centerLabel="Équip."
+          data={[
+            { label: 'Opérationnels', value: s.operationalEquipment, color: '#10b981' },
+            { label: 'Maintenance', value: s.maintenanceEquipment, color: '#f59e0b' },
+            { label: 'En panne', value: s.brokenEquipment, color: '#ef4444' },
+          ]}
+        />
+        <BarChart
+          title="Interventions par statut"
+          data={[
+            { label: 'Planif.', value: s.intPlanifiee, color: '#3b82f6' },
+            { label: 'En cours', value: s.intEnCours, color: '#f59e0b' },
+            { label: 'À signer', value: s.intTerminee, color: '#a855f7' },
+            { label: 'Clôturées', value: s.intSignee, color: '#10b981' },
+          ]}
+        />
+      </div>
 
       {/* Accès rapide */}
       <div className="bg-card border border-border rounded-lg p-4">

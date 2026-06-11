@@ -8,7 +8,7 @@ import { useState, useRef } from 'react'
 import { Upload, Loader2, CheckCircle2, AlertCircle, X, Bot } from 'lucide-react'
 import Groq from 'groq-sdk'
 import { useAuthStore } from '@/stores/auth.store'
-import { useCreateEquipment } from '../hooks/useEquipment'
+import { useCreerEquipement } from '../hooks/useEquipment'
 
 const CATEGORIES = ['PC / Laptop', 'Imprimante', 'Serveur', 'Réseau / Switch', 'Écran', 'Scanner', 'Autre']
 
@@ -23,7 +23,7 @@ interface ExtractedEquipment {
 }
 
 interface Props {
-  companyId: string
+  clientId: string
   onClose: () => void
 }
 
@@ -109,9 +109,9 @@ async function extractWithGroq(fileContent: string): Promise<ExtractedEquipment[
     }))
 }
 
-export function BulkImportModal({ companyId, onClose }: Props) {
+export function BulkImportModal({ clientId, onClose }: Props) {
   const { profile } = useAuthStore()
-  const createMutation = useCreateEquipment()
+  const createMutation = useCreerEquipement()
 
   const [step, setStep] = useState<'upload' | 'extracting' | 'preview' | 'importing' | 'done'>('upload')
   const [equipment, setEquipment] = useState<ExtractedEquipment[]>([])
@@ -171,15 +171,14 @@ export function BulkImportModal({ companyId, onClose }: Props) {
     for (const eq of toImport) {
       try {
         await createMutation.mutateAsync({
-          company_id: companyId,
-          name: eq.name,
-          model: eq.model,
-          serial_number: eq.serial_number,
-          category: eq.category,
-          location: eq.location,
+          client_id: clientId,
+          nom: eq.name,
+          modele: eq.model,
+          numero_serie: eq.serial_number,
+          categorie: eq.category,
+          emplacement: eq.location,
           notes: eq.notes,
-          photos: [],
-          created_by: profile!.id,
+          cree_par: profile!.id,
         })
         count++
         setImportedCount(count)

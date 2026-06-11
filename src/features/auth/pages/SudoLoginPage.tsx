@@ -37,13 +37,13 @@ export function SudoLoginPage() {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('utilisateurs')
       .select('*')
       .eq('id', data.user.id)
       .single()
 
-    // Seul le rôle 'sudo' peut accéder à cette interface
-    if (!profile || profile.role !== 'sudo') {
+    // Seul le rôle 'super_admin' peut accéder à cette interface
+    if (!profile || profile.role !== 'super_admin') {
       await supabase.auth.signOut()
       setError('Accès refusé.')
       setIsLoading(false)

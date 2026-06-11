@@ -1,9 +1,5 @@
 // =============================================================
-// SudoInterventionsPage — Vue globale des interventions (Sudo)
-//
-// Liste toutes les interventions de toutes les entreprises.
-// Filtres : statut, urgence, entreprise, recherche.
-// Vue lecture + actions de modération (annuler, rouvrir).
+// SudoInterventionsPage — Vue globale des interventions (Super Admin)
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -14,14 +10,14 @@ import { supabase } from '@/lib/supabase/client'
 // ----- Helpers visuels -----
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active', en_cours: 'En cours',
-  en_attente_validation: 'En attente', cloturee: 'Clôturée', annulee: 'Annulée',
+  planifiee: 'Planifiée', en_cours: 'En cours',
+  terminee: 'Terminée', signee: 'Signée', annulee: 'Annulée',
 }
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  planifiee: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  en_attente_validation: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  cloturee: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  terminee: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  signee: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 const URGENCY_LABEL: Record<string, string> = { faible: 'Faible', moyenne: 'Moyenne', critique: 'Critique' }
@@ -33,16 +29,14 @@ const URGENCY_CLASS: Record<string, string> = {
 
 // ----- Fetch -----
 
-async function fetchInterventions(filters: {
-  status: string; urgency: string; search: string
-}) {
+async function fetchInterventions(filters: { statut: string; urgence: string; search: string }) {
   let q = supabase
     .from('interventions')
-    .select('id, title, status, urgency, created_at, closed_at, companies(company_name)')
-    .order('created_at', { ascending: false })
+    .select('id, titre, statut, urgence, cree_le, clients(nom_entreprise)')
+    .order('cree_le', { ascending: false })
 
-  if (filters.status) q = q.eq('status', filters.status)
-  if (filters.urgency) q = q.eq('urgency', filters.urgency)
+  if (filters.statut) q = q.eq('statut', filters.statut)
+  if (filters.urgence) q = q.eq('urgence', filters.urgence)
 
   const { data, error } = await q
   if (error) throw error
@@ -51,8 +45,8 @@ async function fetchInterventions(filters: {
   if (filters.search) {
     const s = filters.search.toLowerCase()
     result = result.filter((i: any) =>
-      i.title.toLowerCase().includes(s) ||
-      (i.companies?.company_name ?? '').toLowerCase().includes(s)
+      (i.titre ?? '').toLowerCase().includes(s) ||
+      (i.clients?.nom_entreprise ?? '').toLowerCase().includes(s)
     )
   }
   return result
@@ -67,18 +61,17 @@ export function SudoInterventionsPage() {
 
   const { data: interventions = [], isLoading, error, refetch } = useQuery({
     queryKey: ['sudo-interventions', filterStatus, filterUrgency, search],
-    queryFn: () => fetchInterventions({ status: filterStatus, urgency: filterUrgency, search }),
+    queryFn: () => fetchInterventions({ statut: filterStatus, urgence: filterUrgency, search }),
   })
 
   const counts = {
     total: interventions.length,
-    active: interventions.filter((i: any) => ['active', 'en_cours'].includes(i.status)).length,
-    critique: interventions.filter((i: any) => i.urgency === 'critique' && ['active', 'en_cours'].includes(i.status)).length,
+    active: interventions.filter((i: any) => ['planifiee', 'en_cours'].includes(i.statut)).length,
+    critique: interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut)).length,
   }
 
   return (
     <div className="space-y-6 page-transition">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Interventions</h1>
@@ -94,7 +87,6 @@ export function SudoInterventionsPage() {
         </button>
       </div>
 
-      {/* Stats rapides */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Total', value: counts.total },
@@ -109,7 +101,6 @@ export function SudoInterventionsPage() {
         ))}
       </div>
 
-      {/* Filtres */}
       <div className="flex flex-wrap gap-3">
         <div className="relative w-full sm:flex-1 sm:min-w-[16rem]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -126,10 +117,10 @@ export function SudoInterventionsPage() {
           className="w-full sm:w-auto px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Tous les statuts</option>
-          <option value="active">Active</option>
+          <option value="planifiee">Planifiée</option>
           <option value="en_cours">En cours</option>
-          <option value="en_attente_validation">En attente</option>
-          <option value="cloturee">Clôturée</option>
+          <option value="terminee">Terminée</option>
+          <option value="signee">Signée</option>
           <option value="annulee">Annulée</option>
         </select>
         <select
@@ -144,7 +135,6 @@ export function SudoInterventionsPage() {
         </select>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-sm text-destructive flex items-center gap-2">
           <AlertTriangle size={16} />
@@ -152,7 +142,6 @@ export function SudoInterventionsPage() {
         </div>
       )}
 
-      {/* Liste */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {isLoading ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Chargement…</p>
@@ -174,24 +163,24 @@ export function SudoInterventionsPage() {
                 {interventions.map((inv: any) => (
                   <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-foreground line-clamp-1">{inv.title}</p>
+                      <p className="text-sm font-medium text-foreground line-clamp-1">{inv.titre}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {inv.companies?.company_name ?? '—'}
+                        {inv.clients?.nom_entreprise ?? '—'}
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASS[inv.status] ?? ''}`}>
-                        {STATUS_LABEL[inv.status] ?? inv.status}
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLASS[inv.statut] ?? ''}`}>
+                        {STATUS_LABEL[inv.statut] ?? inv.statut}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${URGENCY_CLASS[inv.urgency] ?? ''}`}>
-                        {URGENCY_LABEL[inv.urgency] ?? inv.urgency}
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${URGENCY_CLASS[inv.urgence] ?? ''}`}>
+                        {URGENCY_LABEL[inv.urgence] ?? inv.urgence}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <p className="text-xs text-muted-foreground">
-                        {new Date(inv.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(inv.cree_le).toLocaleDateString('fr-FR')}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-right">

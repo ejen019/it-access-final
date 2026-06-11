@@ -2,7 +2,7 @@
 // MessagingPage — Messagerie in-app (temps réel via Supabase)
 //
 // Conversation 1-to-1. conversation_id = sorted UUIDs joined by "|".
-// Admin voit tous les contacts. Tech/Entreprise voient les admins.
+// Admin voit tous les contacts. Tech/Client voient les admins.
 // =============================================================
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageCircle, Loader2, ArrowLeft, CornerUpLeft, X } from 'lucide-react'
@@ -13,7 +13,8 @@ import { supabase } from '@/lib/supabase/client'
 
 interface Contact {
   id: string
-  full_name: string
+  nom: string
+  prenom: string | null
   role: string
   email: string
 }
@@ -21,19 +22,20 @@ interface Contact {
 interface ChatMessage {
   id: string
   conversation_id: string
-  sender_id: string
-  content: string
-  reply_to_id: string | null
-  created_at: string
-  // Dénormalisé côté client
-  senderName?: string
-  replyPreview?: string
+  expediteur_id: string
+  contenu: string
+  repondre_a_id: string | null
+  cree_le: string
 }
 
 // ----- Helpers -----
 
 function getConversationId(uid1: string, uid2: string): string {
   return [uid1, uid2].sort().join('|')
+}
+
+function displayName(c: Contact): string {
+  return `${c.prenom ?? ''} ${c.nom}`.trim()
 }
 
 function formatTime(iso: string): string {
@@ -51,39 +53,37 @@ function formatDay(iso: string): string {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  admin: 'Admin', sudo: 'Admin', entreprise: 'Entreprise', technicien: 'Technicien',
+  admin: 'Admin', super_admin: 'Super Admin', client: 'Entreprise', technicien: 'Technicien',
 }
 
-// ----- Hooks -----
+// ----- Requêtes -----
 
 async function fetchContacts(role: string): Promise<Contact[]> {
-  if (role === 'admin') {
-    // L'admin voit entreprises et techniciens (validés, actifs) — pas les sudos
+  if (role === 'admin' || role === 'super_admin') {
     const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, email')
-      .in('role', ['entreprise', 'technicien'])
-      .eq('is_validated', true)
-      .eq('is_active', true)
-      .order('full_name')
+      .from('utilisateurs')
+      .select('id, nom, prenom, role, email')
+      .in('role', ['client', 'technicien'])
+      .eq('compte_valide', true)
+      .eq('est_actif', true)
+      .order('nom')
     return data ?? []
   }
-  // Entreprise et technicien : voient seulement les admins (pas les sudos)
   const { data } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, email')
+    .from('utilisateurs')
+    .select('id, nom, prenom, role, email')
     .eq('role', 'admin')
-    .eq('is_active', true)
-    .order('full_name')
+    .eq('est_actif', true)
+    .order('nom')
   return data ?? []
 }
 
 async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
   const { data } = await supabase
     .from('messages')
-    .select('id, conversation_id, sender_id, content, reply_to_id, created_at')
+    .select('id, conversation_id, expediteur_id, contenu, repondre_a_id, cree_le')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
+    .order('cree_le', { ascending: true })
   return (data ?? []) as ChatMessage[]
 }
 
@@ -95,9 +95,9 @@ async function sendMessage(params: {
 }) {
   const { error } = await supabase.from('messages').insert({
     conversation_id: params.conversationId,
-    sender_id: params.senderId,
-    content: params.content.trim(),
-    reply_to_id: params.replyToId,
+    expediteur_id: params.senderId,
+    contenu: params.content.trim(),
+    repondre_a_id: params.replyToId,
   })
   if (error) throw error
 }
@@ -128,10 +128,10 @@ function ContactList({
           }`}
         >
           <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-bold text-white">{c.full_name.charAt(0).toUpperCase()}</span>
+            <span className="text-sm font-bold text-white">{c.nom.charAt(0).toUpperCase()}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{c.full_name}</p>
+            <p className="text-sm font-medium text-foreground truncate">{displayName(c)}</p>
             <p className="text-xs text-muted-foreground">{ROLE_LABEL[c.role]}</p>
           </div>
         </button>
@@ -165,7 +165,6 @@ function ChatView({
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }, [])
 
-  // Charger les messages initiaux
   useEffect(() => {
     setLoading(true)
     fetchConversationMessages(conversationId).then((msgs) => {
@@ -175,7 +174,6 @@ function ChatView({
     })
   }, [conversationId, scrollToBottom])
 
-  // Abonnement Supabase Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`conv:${conversationId}`)
@@ -216,7 +214,6 @@ function ChatView({
         content: currentInput,
         replyToId: currentReply?.id ?? null,
       })
-      // Refresh to show own message immediately (don't wait for Realtime)
       const msgs = await fetchConversationMessages(conversationId)
       setMessages(msgs)
       scrollToBottom()
@@ -236,10 +233,9 @@ function ChatView({
     if (longPressTimer.current) clearTimeout(longPressTimer.current)
   }
 
-  // Grouper les messages par jour
   const grouped: { day: string; msgs: ChatMessage[] }[] = []
   for (const msg of messages) {
-    const day = formatDay(msg.created_at)
+    const day = formatDay(msg.cree_le)
     const last = grouped[grouped.length - 1]
     if (last && last.day === day) {
       last.msgs.push(msg)
@@ -251,26 +247,24 @@ function ChatView({
   function getReplyPreview(replyToId: string | null): string {
     if (!replyToId) return ''
     const msg = messages.find((m) => m.id === replyToId)
-    return msg ? msg.content.slice(0, 60) + (msg.content.length > 60 ? '…' : '') : ''
+    return msg ? msg.contenu.slice(0, 60) + (msg.contenu.length > 60 ? '…' : '') : ''
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header conversation */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0 shadow-sm">
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-accent md:hidden">
           <ArrowLeft size={18} className="text-muted-foreground" />
         </button>
         <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-bold text-white">{contact.full_name.charAt(0).toUpperCase()}</span>
+          <span className="text-sm font-bold text-white">{contact.nom.charAt(0).toUpperCase()}</span>
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">{contact.full_name}</p>
+          <p className="text-sm font-semibold text-foreground">{displayName(contact)}</p>
           <p className="text-xs text-muted-foreground">{ROLE_LABEL[contact.role]}</p>
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 min-h-0">
         {loading ? (
           <div className="flex items-center justify-center h-32">
@@ -286,7 +280,7 @@ function ChatView({
             <div key={day}>
               <p className="text-xs text-muted-foreground text-center my-3">{day}</p>
               {msgs.map((msg) => {
-                const isMine = msg.sender_id === myId
+                const isMine = msg.expediteur_id === myId
                 return (
                   <div
                     key={msg.id}
@@ -301,15 +295,14 @@ function ChatView({
                         ? 'gradient-primary text-white rounded-br-sm shadow-sm'
                         : 'bg-muted text-foreground rounded-bl-sm'
                     }`}>
-                      {/* Réponse à */}
-                      {msg.reply_to_id && (
+                      {msg.repondre_a_id && (
                         <div className={`text-xs opacity-70 border-l-2 pl-2 ${isMine ? 'border-white/50' : 'border-primary/50'}`}>
-                          {getReplyPreview(msg.reply_to_id)}
+                          {getReplyPreview(msg.repondre_a_id)}
                         </div>
                       )}
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                      <p className="text-sm leading-relaxed">{msg.contenu}</p>
                       <p className={`text-xs ${isMine ? 'text-white/60' : 'text-muted-foreground'} text-right`}>
-                        {formatTime(msg.created_at)}
+                        {formatTime(msg.cree_le)}
                       </p>
                     </div>
                   </div>
@@ -321,13 +314,12 @@ function ChatView({
         <div ref={bottomRef} />
       </div>
 
-      {/* Zone réponse */}
       {replyTo && (
         <div className="flex items-center gap-2 px-4 py-2 bg-muted border-t border-border">
           <CornerUpLeft size={14} className="text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground truncate">
-              {replyTo.sender_id === myId ? 'Vous' : contact.full_name} · {replyTo.content.slice(0, 60)}
+              {replyTo.expediteur_id === myId ? 'Vous' : displayName(contact)} · {replyTo.contenu.slice(0, 60)}
             </p>
           </div>
           <button onClick={() => setReplyTo(null)}>
@@ -336,7 +328,6 @@ function ChatView({
         </div>
       )}
 
-      {/* Input message */}
       <form
         onSubmit={handleSend}
         className="flex items-end gap-2 px-4 py-3 border-t border-border bg-card flex-shrink-0"
@@ -378,9 +369,10 @@ export function MessagingPage() {
 
   if (!profile) return null
 
+  const myDisplayName = `${profile.prenom ?? ''} ${profile.nom}`.trim()
+
   return (
     <div className="h-[calc(100vh-7.5rem)] md:h-[calc(100vh-4rem)] flex overflow-hidden">
-      {/* Liste contacts — masquée sur mobile quand conversation ouverte */}
       <div className={`
         w-full md:w-72 border-r border-border bg-card flex flex-col flex-shrink-0
         ${selectedContact ? 'hidden md:flex' : 'flex'}
@@ -407,13 +399,12 @@ export function MessagingPage() {
         </div>
       </div>
 
-      {/* Zone de chat */}
       <div className={`flex-1 flex flex-col min-w-0 ${!selectedContact ? 'hidden md:flex' : 'flex'}`}>
         {selectedContact ? (
           <ChatView
             contact={selectedContact}
             myId={profile.id}
-            myName={profile.full_name}
+            myName={myDisplayName}
             onBack={() => setSelectedContact(null)}
           />
         ) : (

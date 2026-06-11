@@ -13,7 +13,7 @@ export async function logAuditAction(payload: AuditPayload) {
   if (!me.user) return
 
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('utilisateurs')
     .select('role')
     .eq('id', me.user.id)
     .single()

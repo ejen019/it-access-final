@@ -5,18 +5,18 @@
 import { Link } from 'react-router-dom'
 import { Wrench, Clock, ArrowRight, AlertTriangle, QrCode } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
-import { useTechInterventions } from '@/features/interventions/hooks/useInterventions'
+import { useInterventionsTechnicien } from '@/features/interventions/hooks/useInterventions'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
 
 async function fetchAssignedCompanies(profileId: string) {
   const { data: tech } = await supabase
-    .from('technicians').select('id').eq('user_id', profileId).single()
+    .from('techniciens').select('id').eq('utilisateur_id', profileId).single()
   if (!tech) return []
   const { data } = await supabase
-    .from('assignments').select('companies(id, company_name)').eq('technician_id', tech.id)
-  return (data ?? []).map((a: any) => a.companies).filter(Boolean)
+    .from('affectations').select('clients(id, nom_entreprise)').eq('technicien_id', tech.id)
+  return (data ?? []).map((a: any) => a.clients).filter(Boolean)
 }
 
 function StatCard({ icon: Icon, label, value, alert }: {
@@ -43,14 +43,14 @@ function getGreeting() {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active', en_cours: 'En cours',
-  en_attente_validation: 'En attente', cloturee: 'Clôturée', annulee: 'Annulée',
+  planifiee: 'Planifiée', en_cours: 'En cours',
+  terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+  planifiee: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
   en_cours: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  en_attente_validation: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  cloturee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+  terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
+  signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 const URGENCY_DOT: Record<string, string> = {
@@ -59,19 +59,19 @@ const URGENCY_DOT: Record<string, string> = {
 
 export function TechnicienDashboardPage() {
   const { profile } = useAuthStore()
-  const { data: interventions = [] } = useTechInterventions(profile?.id)
+  const { data: interventions = [] } = useInterventionsTechnicien(profile?.id)
   const { data: companies = [] } = useQuery({
     queryKey: ['tech-companies', profile?.id],
     queryFn: () => fetchAssignedCompanies(profile!.id),
     enabled: !!profile,
   })
 
-  const active    = interventions.filter((i: any) => i.status === 'active').length
-  const enCours   = interventions.filter((i: any) => i.status === 'en_cours').length
-  const enAttente = interventions.filter((i: any) => i.status === 'en_attente_validation').length
-  const cloturees = interventions.filter((i: any) => i.status === 'cloturee').length
-  const urgentes  = interventions.filter((i: any) => i.urgency === 'critique' && ['active', 'en_cours'].includes(i.status))
-  const recentes  = [...interventions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4)
+  const active    = interventions.filter((i: any) => i.statut === 'planifiee').length
+  const enCours   = interventions.filter((i: any) => i.statut === 'en_cours').length
+  const enAttente = interventions.filter((i: any) => i.statut === 'terminee').length
+  const cloturees = interventions.filter((i: any) => i.statut === 'signee').length
+  const urgentes  = interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut))
+  const recentes  = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   return (
     <div className="p-4 space-y-5 page-transition">
@@ -79,7 +79,7 @@ export function TechnicienDashboardPage() {
       {/* Header */}
       <div>
         <p className="text-xs text-muted-foreground">{getGreeting()}</p>
-        <h1 className="text-xl font-bold text-foreground">{profile?.full_name?.split(' ')[0]}</h1>
+        <h1 className="text-xl font-bold text-foreground">{profile?.nom}</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           {companies.length} entreprise{companies.length > 1 ? 's' : ''} assignée{companies.length > 1 ? 's' : ''}
         </p>
@@ -180,10 +180,10 @@ export function TechnicienDashboardPage() {
                 to={`/technicien/interventions/${inv.id}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgency] ?? 'bg-border'}`} />
-                <p className="text-sm text-foreground flex-1 truncate">{inv.title}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[inv.status] ?? ''}`}>
-                  {STATUS_LABEL[inv.status]}
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgence] ?? 'bg-border'}`} />
+                <p className="text-sm text-foreground flex-1 truncate">{inv.titre}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[inv.statut] ?? ''}`}>
+                  {STATUS_LABEL[inv.statut]}
                 </span>
               </Link>
             ))}

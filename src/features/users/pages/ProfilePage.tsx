@@ -1,6 +1,5 @@
 // =============================================================
 // ProfilePage — Profil utilisateur (partagé tous rôles)
-// Édition nom/téléphone, changement mdp, thème, code de validation
 // =============================================================
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -10,11 +9,11 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
 import { useNavigate } from 'react-router-dom'
 
-async function fetchMyCompany(userId: string) {
+async function fetchMyClient(userId: string) {
   const { data } = await supabase
-    .from('companies')
-    .select('id, validation_code')
-    .eq('user_id', userId)
+    .from('clients')
+    .select('id, code_signature')
+    .eq('utilisateur_id', userId)
     .single()
   return data
 }
@@ -25,14 +24,14 @@ function generateCode(): string {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  sudo: 'Super Admin',
+  super_admin: 'Super Admin',
   admin: 'Administrateur',
-  entreprise: 'Entreprise',
+  client: 'Entreprise',
   technicien: 'Technicien IT',
 }
 
 const ROLE_THEME: Record<string, { ring: string; badge: string; panel: string; panelSub: string }> = {
-  sudo: {
+  super_admin: {
     ring: 'ring-rose-500/30',
     badge: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300',
     panel: 'from-rose-50 to-white dark:from-rose-950/30 dark:to-card',
@@ -44,7 +43,7 @@ const ROLE_THEME: Record<string, { ring: string; badge: string; panel: string; p
     panel: 'from-sky-50 to-white dark:from-sky-950/30 dark:to-card',
     panelSub: 'text-sky-700 dark:text-sky-300',
   },
-  entreprise: {
+  client: {
     ring: 'ring-cyan-500/30',
     badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300',
     panel: 'from-cyan-50 to-white dark:from-cyan-950/30 dark:to-card',
@@ -64,8 +63,9 @@ export function ProfilePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [fullName, setFullName] = useState(profile?.full_name ?? '')
-  const [phone, setPhone] = useState(profile?.phone ?? '')
+  const [nom, setNom] = useState(profile?.nom ?? '')
+  const [prenom, setPrenom] = useState(profile?.prenom ?? '')
+  const [telephone, setTelephone] = useState(profile?.telephone ?? '')
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
@@ -77,16 +77,17 @@ export function ProfilePage() {
   const [codeCopied, setCodeCopied] = useState(false)
   const [codeRegenerating, setCodeRegenerating] = useState(false)
 
-  const { data: company, refetch: refetchCompany } = useQuery({
-    queryKey: ['my-company-profile', profile?.id],
-    queryFn: () => fetchMyCompany(profile!.id),
-    enabled: profile?.role === 'entreprise',
+  const { data: client, refetch: refetchClient } = useQuery({
+    queryKey: ['my-client-profile', profile?.id],
+    queryFn: () => fetchMyClient(profile!.id),
+    enabled: profile?.role === 'client',
   })
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name)
-      setPhone(profile.phone ?? '')
+      setNom(profile.nom)
+      setPrenom(profile.prenom ?? '')
+      setTelephone(profile.telephone ?? '')
     }
   }, [profile?.id])
 
@@ -94,8 +95,8 @@ export function ProfilePage() {
     e.preventDefault()
     setProfileSaving(true)
     await supabase
-      .from('profiles')
-      .update({ full_name: fullName.trim(), phone: phone.trim() || null })
+      .from('utilisateurs')
+      .update({ nom: nom.trim(), prenom: prenom.trim() || null, telephone: telephone.trim() || null })
       .eq('id', profile!.id)
     queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
     setProfileSaving(false)
@@ -123,17 +124,17 @@ export function ProfilePage() {
   }
 
   async function handleRegenerateCode() {
-    if (!company) return
+    if (!client) return
     setCodeRegenerating(true)
     const newCode = generateCode()
-    await supabase.from('companies').update({ validation_code: newCode }).eq('id', company.id)
-    await refetchCompany()
+    await supabase.from('clients').update({ code_signature: newCode }).eq('id', client.id)
+    await refetchClient()
     setCodeRegenerating(false)
   }
 
   async function handleCopyCode() {
-    if (!company?.validation_code) return
-    await navigator.clipboard.writeText(company.validation_code)
+    if (!client?.code_signature) return
+    await navigator.clipboard.writeText(client.code_signature)
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
   }
@@ -145,12 +146,13 @@ export function ProfilePage() {
 
   const role = profile?.role ?? 'technicien'
   const roleTheme = ROLE_THEME[role] ?? ROLE_THEME.technicien
-  const initials = profile?.full_name
-    ?.split(' ')
+  const displayName = (`${profile?.prenom ?? ''} ${profile?.nom ?? ''}`.trim()) || (profile?.nom ?? '')
+  const initials = displayName
+    .split(' ')
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase() ?? '?'
+    .toUpperCase() || '?'
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 p-4 md:p-6 page-transition">
@@ -165,7 +167,7 @@ export function ProfilePage() {
               <span className="text-xl font-bold text-foreground">{initials}</span>
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-semibold text-foreground truncate">{profile?.full_name}</h1>
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground truncate">{displayName}</h1>
               <p className="text-sm text-muted-foreground mt-0.5 truncate">{profile?.email}</p>
             </div>
           </div>
@@ -187,21 +189,33 @@ export function ProfilePage() {
           <h2 className="font-semibold text-foreground text-sm">Informations personnelles</h2>
         </div>
         <form onSubmit={handleSaveProfile} className="p-5 space-y-3">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Nom complet</label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Prénom</label>
+              <input
+                type="text"
+                value={prenom}
+                onChange={(e) => setPrenom(e.target.value)}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Nom</label>
+              <input
+                type="text"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Téléphone</label>
             <input
               type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
               placeholder="+229 XX XX XX XX"
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -281,8 +295,8 @@ export function ProfilePage() {
       </section>
       </div>
 
-      {/* Code de validation (entreprise uniquement) */}
-      {profile?.role === 'entreprise' && company && (
+      {/* Code de signature (client uniquement) */}
+      {profile?.role === 'client' && client && (
         <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
@@ -296,7 +310,7 @@ export function ProfilePage() {
             </p>
             <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
               <span className="text-2xl font-mono font-bold tracking-[0.3em] text-foreground">
-                {company.validation_code}
+                {client.code_signature}
               </span>
             </div>
             <div className="flex gap-2">
@@ -323,7 +337,6 @@ export function ProfilePage() {
         </section>
       )}
 
-      {/* Déconnexion */}
       <button
         onClick={handleLogout}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-destructive/40 text-destructive rounded-xl text-sm font-medium hover:bg-destructive/10 transition-colors"

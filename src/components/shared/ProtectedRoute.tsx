@@ -17,10 +17,10 @@ interface ProtectedRouteProps {
 }
 
 const ROLE_HOME: Record<string, string> = {
-  sudo: '/sudo/dashboard',
+  super_admin: '/sudo/dashboard',
   admin: '/admin/dashboard',
   technicien: '/technicien/dashboard',
-  entreprise: '/entreprise/dashboard',
+  client: '/entreprise/dashboard',
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -30,8 +30,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   // Détecte quand un compte passe de non-validé à validé (via Realtime)
   // et affiche un écran de transition avant la redirection
   useEffect(() => {
-    if (profile?.is_validated) setJustValidated(true)
-  }, [profile?.is_validated])
+    if (profile?.compte_valide) setJustValidated(true)
+  }, [profile?.compte_valide])
 
   // Attente du chargement initial de la session
   if (isLoading) return <LoadingScreen />
@@ -40,7 +40,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   if (!profile) return <Navigate to="/connexion" replace />
 
   // Compte en attente de validation Admin
-  if (!profile.is_validated && profile.role !== 'sudo' && profile.role !== 'admin') {
+  if (!profile.compte_valide && profile.role !== 'super_admin' && profile.role !== 'admin') {
     return <PendingValidationScreen />
   }
 
@@ -76,14 +76,14 @@ function PendingValidationScreen() {
 
   // Quand le profil est mis à jour via Realtime et que is_validated devient true
   useEffect(() => {
-    if (profile?.is_validated) {
+    if (profile?.compte_valide) {
       setValidated(true)
       // Redirection automatique après 2s pour laisser le temps de lire le message
       setTimeout(() => {
         window.location.href = ROLE_HOME[profile.role] ?? '/connexion'
       }, 2000)
     }
-  }, [profile?.is_validated])
+  }, [profile?.compte_valide])
 
   async function handleLogout() {
     const { supabase } = await import('@/lib/supabase/client')

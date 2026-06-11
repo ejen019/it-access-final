@@ -1,8 +1,5 @@
 // =============================================================
-// UsersPage — Gestion des utilisateurs (Admin / Sudo)
-//
-// Onglets : En attente | Entreprises | Techniciens
-// Actions : Valider, Désactiver, Supprimer, Affecter technicien
+// UsersPage — Gestion des utilisateurs (Admin)
 // =============================================================
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -16,80 +13,74 @@ import { logAuditAction } from '@/lib/audit'
 
 type Tab = 'pending' | 'companies' | 'technicians'
 
-async function fetchProfiles(tab: Tab) {
+async function fetchUtilisateurs(tab: Tab) {
   if (tab === 'pending') {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, phone, role, is_validated, is_active, created_at, companies(id, company_name), technicians(id, specialty)')
-      .eq('is_validated', false)
-      .in('role', ['entreprise', 'technicien'])
-      .order('created_at', { ascending: false })
+      .from('utilisateurs')
+      .select('id, nom, prenom, email, telephone, role, compte_valide, est_actif, cree_le, clients(id, nom_entreprise), techniciens(id, specialite)')
+      .eq('compte_valide', false)
+      .in('role', ['client', 'technicien'])
+      .order('cree_le', { ascending: false })
     if (error) throw error
     return data ?? []
   }
   if (tab === 'companies') {
-    // Jointure simplifiée : sans le triple-niveau contracts pour éviter les erreurs PostgREST
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, phone, is_validated, is_active, created_at, companies(id, company_name, city, sector, contract_id)')
-      .eq('role', 'entreprise')
-      .order('created_at', { ascending: false })
+      .from('utilisateurs')
+      .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, clients(id, nom_entreprise, ville, secteur)')
+      .eq('role', 'client')
+      .order('cree_le', { ascending: false })
     if (error) throw error
     return data ?? []
   }
-  // Techniciens : jointure sur technicians + assignments simplifiée
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, phone, is_validated, is_active, created_at, technicians(id, specialty, assignments(id, company_id))')
+    .from('utilisateurs')
+    .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, techniciens(id, specialite, affectations(id, client_id))')
     .eq('role', 'technicien')
-    .order('created_at', { ascending: false })
+    .order('cree_le', { ascending: false })
   if (error) throw error
   return data ?? []
 }
 
-async function fetchCompaniesForAssignment() {
-  const { data } = await supabase.from('companies').select('id, company_name')
+async function fetchClientsForAssignment() {
+  const { data } = await supabase.from('clients').select('id, nom_entreprise')
   return data ?? []
 }
 
 async function validateUser(userId: string) {
-  // is_active: true explicite pour rattraper les comptes qui auraient été désactivés avant validation
-  await supabase.from('profiles').update({ is_validated: true, is_active: true }).eq('id', userId)
+  await supabase.from('utilisateurs').update({ compte_valide: true, est_actif: true }).eq('id', userId)
   await supabase.from('notifications').insert({
-    user_id: userId,
+    utilisateur_id: userId,
     type: 'account_validated',
-    title: 'Compte validé',
-    body: "Votre compte a été validé. Vous pouvez maintenant accéder à l'application.",
-    link: '/',
+    titre: 'Compte validé',
+    corps: "Votre compte a été validé. Vous pouvez maintenant accéder à l'application.",
+    lien: '/',
   })
 }
 
 async function toggleActive(userId: string, isActive: boolean) {
-  await supabase.from('profiles').update({ is_active: !isActive }).eq('id', userId)
+  await supabase.from('utilisateurs').update({ est_actif: !isActive }).eq('id', userId)
 }
 
 async function deleteUser(userId: string) {
   await logAuditAction({
     action: 'users.delete_requested',
-    entityType: 'profiles',
+    entityType: 'utilisateurs',
     entityId: userId,
     details: { source: 'admin_panel' },
   })
-  // Appelle la Edge Function qui supprime auth.users (cascade vers profiles/companies/etc.)
-  const { data, error } = await supabase.functions.invoke('delete-user', {
-    body: { userId },
-  })
+  const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId } })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
 }
 
-async function assignTechnician(techUserId: string, companyId: string, assignedBy: string) {
+async function assignTechnician(techUserId: string, clientId: string, assignedBy: string) {
   const { data: tech } = await supabase
-    .from('technicians').select('id').eq('user_id', techUserId).single()
+    .from('techniciens').select('id').eq('utilisateur_id', techUserId).single()
   if (!tech) throw new Error('Technicien introuvable')
-  await supabase.from('assignments').upsert(
-    { technician_id: tech.id, company_id: companyId, assigned_by: assignedBy },
-    { onConflict: 'technician_id,company_id' }
+  await supabase.from('affectations').upsert(
+    { technicien_id: tech.id, client_id: clientId, affecte_par: assignedBy },
+    { onConflict: 'technicien_id,client_id' }
   )
 }
 
@@ -109,13 +100,13 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
 function AssignModal({ techUserId, onClose }: { techUserId: string; onClose: () => void }) {
   const { profile } = useAuthStore()
   const queryClient = useQueryClient()
-  const [selectedCompany, setSelectedCompany] = useState('')
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies-for-assignment'],
-    queryFn: fetchCompaniesForAssignment,
+  const [selectedClient, setSelectedClient] = useState('')
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-for-assignment'],
+    queryFn: fetchClientsForAssignment,
   })
   const { mutate, isPending } = useMutation({
-    mutationFn: () => assignTechnician(techUserId, selectedCompany, profile!.id),
+    mutationFn: () => assignTechnician(techUserId, selectedClient, profile!.id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); onClose() },
   })
   return (
@@ -123,13 +114,13 @@ function AssignModal({ techUserId, onClose }: { techUserId: string; onClose: () 
       <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
         <h3 className="font-semibold text-foreground">Affecter à une entreprise</h3>
         <select
-          value={selectedCompany}
-          onChange={(e) => setSelectedCompany(e.target.value)}
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
           className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Choisir une entreprise…</option>
-          {companies.map((c: any) => (
-            <option key={c.id} value={c.id}>{c.company_name}</option>
+          {(clients as any[]).map((c) => (
+            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
           ))}
         </select>
         <div className="flex gap-3">
@@ -138,7 +129,7 @@ function AssignModal({ techUserId, onClose }: { techUserId: string; onClose: () 
           </button>
           <button
             onClick={() => mutate()}
-            disabled={!selectedCompany || isPending}
+            disabled={!selectedClient || isPending}
             className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
           >
             Affecter
@@ -159,7 +150,7 @@ export function UsersPage() {
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['users', tab],
-    queryFn: () => fetchProfiles(tab),
+    queryFn: () => fetchUtilisateurs(tab),
   })
 
   const { mutate: doValidate } = useMutation({
@@ -180,7 +171,7 @@ export function UsersPage() {
   })
 
   const filtered = users.filter((u: any) => {
-    const name = (u.companies?.company_name ?? u.full_name ?? '').toLowerCase()
+    const name = (u.clients?.nom_entreprise ?? `${u.prenom ?? ''} ${u.nom}`).toLowerCase()
     return name.includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
   })
 
@@ -250,51 +241,50 @@ export function UsersPage() {
                   <tr key={user.id} className="border-b border-border hover:bg-accent/40 transition-colors">
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-foreground">
-                        {user.companies?.company_name ?? user.full_name}
+                        {user.clients?.nom_entreprise ?? `${user.prenom ?? ''} ${user.nom}`.trim()}
                       </p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
-                      {tab === 'technicians' && user.technicians?.assignments?.length > 0 && (
+                      {tab === 'technicians' && (user.techniciens?.affectations?.length ?? 0) > 0 && (
                         <p className="text-xs text-primary mt-0.5">
-                          {user.technicians.assignments.length} entreprise{user.technicians.assignments.length > 1 ? 's' : ''}
+                          {user.techniciens.affectations.length} entreprise{user.techniciens.affectations.length > 1 ? 's' : ''}
                         </p>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-xs text-muted-foreground">{user.phone ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground">{user.telephone ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3">
-                      {!user.is_validated
+                      {!user.compte_valide
                         ? <Badge label="En attente" variant="warning" />
-                        : user.is_active
+                        : user.est_actif
                           ? <Badge label="Actif" variant="success" />
                           : <Badge label="Désactivé" variant="danger" />
                       }
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <p className="text-xs text-muted-foreground">
-                        {new Date(user.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(user.cree_le).toLocaleDateString('fr-FR')}
                       </p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
-                        {!user.is_validated && (
+                        {!user.compte_valide && (
                           <button onClick={() => doValidate(user.id)} title="Valider"
                             className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
                             <CheckCircle2 size={16} />
                           </button>
                         )}
-                        {tab === 'technicians' && user.is_validated && (
+                        {tab === 'technicians' && user.compte_valide && (
                           <button onClick={() => setAssignTarget(user.id)} title="Affecter"
                             className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors">
                             <UserPlus size={16} />
                           </button>
                         )}
-                        <button onClick={() => doToggle({ id: user.id, active: user.is_active })} title={user.is_active ? 'Désactiver' : 'Réactiver'}
+                        <button onClick={() => doToggle({ id: user.id, active: user.est_actif })} title={user.est_actif ? 'Désactiver' : 'Réactiver'}
                           className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
                           <XCircle size={16} />
                         </button>
-                        {/* Sudo peut supprimer tout le monde, Admin ne peut pas supprimer un Sudo */}
-                        {(me?.role === 'sudo' || user.role !== 'sudo') && (
+                        {(me?.role === 'super_admin' || user.role !== 'super_admin') && (
                           <button onClick={() => setDeleteConfirm(user.id)} title="Supprimer"
                             className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
                             <Trash2 size={16} />

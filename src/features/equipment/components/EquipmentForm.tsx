@@ -1,44 +1,43 @@
 // =============================================================
 // EquipmentForm — Formulaire de création / édition d'un équipement
-// Réutilisé par Admin et Entreprise
 // =============================================================
 import { useState } from 'react'
 import { Loader2, Upload, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import {
-  useCreateEquipment,
-  useUpdateEquipment,
-  uploadEquipmentPhoto,
-  type EquipmentInput,
+  useCreerEquipement,
+  useModifierEquipement,
+  uploadPhotoEquipement,
+  type EquipementInput,
 } from '../hooks/useEquipment'
-import type { Equipment } from '@/types'
+import type { Equipement } from '@/types'
 
 const CATEGORIES = ['PC / Laptop', 'Imprimante', 'Serveur', 'Réseau / Switch', 'Écran', 'Scanner', 'Autre']
 
 interface Props {
-  companyId: string
-  equipment?: Equipment        // Si fourni → mode édition
+  clientId: string
+  equipment?: Equipement
   onSuccess: () => void
   onCancel: () => void
 }
 
-export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Props) {
+export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Props) {
   const { profile } = useAuthStore()
-  const createMutation = useCreateEquipment()
-  const updateMutation = useUpdateEquipment()
+  const createMutation = useCreerEquipement()
+  const updateMutation = useModifierEquipement()
 
   const [form, setForm] = useState({
-    name: equipment?.name ?? '',
-    model: equipment?.model ?? '',
-    serial_number: equipment?.serial_number ?? '',
-    category: equipment?.category ?? '',
-    location: equipment?.location ?? '',
-    purchase_date: equipment?.purchase_date ?? '',
-    warranty_end: equipment?.warranty_end ?? '',
+    nom: equipment?.nom ?? '',
+    modele: equipment?.modele ?? '',
+    numero_serie: equipment?.numero_serie ?? '',
+    categorie: equipment?.categorie ?? '',
+    emplacement: equipment?.emplacement ?? '',
+    date_achat: equipment?.date_achat ?? '',
+    fin_garantie: equipment?.fin_garantie ?? '',
     notes: equipment?.notes ?? '',
   })
 
-  const [photos, setPhotos] = useState<string[]>(equipment?.photos ?? [])
+  const [photos, setPhotos] = useState<string[]>((equipment as any)?.photos ?? [])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,11 +59,11 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
     setError(null)
 
     try {
-      const equipmentId = equipment?.id ?? `temp-${Date.now()}`
+      const equipementId = equipment?.id ?? `temp-${Date.now()}`
       const urls = await Promise.all(
         files.map((f) => {
           if (f.size > 10 * 1024 * 1024) throw new Error('Fichier trop volumineux (max 10 MB).')
-          return uploadEquipmentPhoto(f, equipmentId)
+          return uploadPhotoEquipement(f, equipementId)
         })
       )
       setPhotos((p) => [...p, ...urls])
@@ -78,21 +77,21 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (!form.nom.trim()) return
     setError(null)
 
-    const input: EquipmentInput = {
-      company_id: companyId,
-      name: form.name.trim(),
-      model: form.model || undefined,
-      serial_number: form.serial_number || undefined,
-      category: form.category || undefined,
-      location: form.location || undefined,
-      purchase_date: form.purchase_date || undefined,
-      warranty_end: form.warranty_end || undefined,
+    const input: EquipementInput = {
+      client_id: clientId,
+      nom: form.nom.trim(),
+      modele: form.modele || undefined,
+      numero_serie: form.numero_serie || undefined,
+      categorie: form.categorie || undefined,
+      emplacement: form.emplacement || undefined,
+      date_achat: form.date_achat || undefined,
+      fin_garantie: form.fin_garantie || undefined,
       notes: form.notes || undefined,
       photos,
-      created_by: profile!.id,
+      cree_par: profile!.id,
     }
 
     try {
@@ -115,26 +114,24 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
         </div>
       )}
 
-      {/* Nom (requis) */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">{"Nom de l'équipement *"}</label>
         <input
           type="text"
-          value={form.name}
-          onChange={(e) => update('name', e.target.value)}
+          value={form.nom}
+          onChange={(e) => update('nom', e.target.value)}
           required
           placeholder="Ex: Dell Latitude 5520"
           className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
-      {/* Catégorie + Modèle */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-foreground">Catégorie</label>
           <select
-            value={form.category}
-            onChange={(e) => update('category', e.target.value)}
+            value={form.categorie}
+            onChange={(e) => update('categorie', e.target.value)}
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Choisir…</option>
@@ -145,46 +142,44 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
           <label className="text-sm font-medium text-foreground">Modèle</label>
           <input
             type="text"
-            value={form.model}
-            onChange={(e) => update('model', e.target.value)}
+            value={form.modele}
+            onChange={(e) => update('modele', e.target.value)}
             placeholder="Ex: Latitude 5520"
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
-      {/* Numéro de série + Localisation */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-foreground">N° de série</label>
           <input
             type="text"
-            value={form.serial_number}
-            onChange={(e) => update('serial_number', e.target.value)}
+            value={form.numero_serie}
+            onChange={(e) => update('numero_serie', e.target.value)}
             placeholder="SN123456"
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">Localisation</label>
+          <label className="text-sm font-medium text-foreground">Emplacement</label>
           <input
             type="text"
-            value={form.location}
-            onChange={(e) => update('location', e.target.value)}
+            value={form.emplacement}
+            onChange={(e) => update('emplacement', e.target.value)}
             placeholder="Bureau direction"
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
-      {/* Dates */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-foreground">{"Date d'achat"}</label>
           <input
             type="date"
-            value={form.purchase_date}
-            onChange={(e) => update('purchase_date', e.target.value)}
+            value={form.date_achat}
+            onChange={(e) => update('date_achat', e.target.value)}
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -192,14 +187,13 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
           <label className="text-sm font-medium text-foreground">Fin de garantie</label>
           <input
             type="date"
-            value={form.warranty_end}
-            onChange={(e) => update('warranty_end', e.target.value)}
+            value={form.fin_garantie}
+            onChange={(e) => update('fin_garantie', e.target.value)}
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
-      {/* Notes */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Notes</label>
         <textarea
@@ -211,7 +205,6 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
         />
       </div>
 
-      {/* Photos */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground">
           Photos ({photos.length}/3)
@@ -239,7 +232,6 @@ export function EquipmentForm({ companyId, equipment, onSuccess, onCancel }: Pro
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3 pt-2">
         <button
           type="button"

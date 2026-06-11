@@ -1,48 +1,51 @@
 // =============================================================
 // ContractsPage — Gestion des contrats (Admin)
-// Affiche les contrats par entreprise avec quotas et dates
 // =============================================================
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, FileText, AlertTriangle, CheckCircle2, Loader2, Building2, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { CONTRACT_PLANS, type ContractPlan } from '@/types'
-import { fetchPublicConfig } from '@/lib/publicConfig'
+import type { TypePlan } from '@/types'
 
-async function fetchContractsWithCompanies() {
+async function fetchContrats() {
   const { data, error } = await supabase
-    .from('contracts')
-    .select(`
-      *,
-      companies ( id, company_name )
-    `)
-    .order('created_at', { ascending: false })
+    .from('contrats')
+    .select('*, clients(id, nom_entreprise), abonnements(plan, max_equipements, max_techniciens, montant)')
+    .order('cree_le', { ascending: false })
   if (error) throw error
   return data ?? []
 }
 
-async function fetchCompaniesWithoutContract() {
-  const { data: withContract, error: err1 } = await supabase
-    .from('contracts')
-    .select('company_id')
-    .eq('is_active', true)
-  if (err1) throw err1
+async function fetchClientsWithoutContrat() {
+  const { data: withContrat } = await supabase
+    .from('contrats')
+    .select('client_id')
+    .eq('est_actif', true)
 
-  const usedIds = (withContract ?? []).map((c: any) => c.company_id)
-  const query = supabase.from('companies').select('id, company_name').order('company_name')
-  const { data, error: err2 } = usedIds.length
+  const usedIds = (withContrat ?? []).map((c: any) => c.client_id)
+  const query = supabase.from('clients').select('id, nom_entreprise').order('nom_entreprise')
+  const { data, error } = usedIds.length
     ? await query.not('id', 'in', `(${usedIds.join(',')})`)
     : await query
-  if (err2) throw err2
+  if (error) throw error
   return data ?? []
 }
 
-const PLAN_GRADIENT: Record<ContractPlan, { from: string; to: string; badge: string }> = {
-  starter:    { from: 'from-slate-500', to: 'to-slate-600', badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-  medium:     { from: 'from-blue-500',  to: 'to-indigo-600', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-  premium:    { from: 'from-purple-500', to: 'to-violet-600', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-  pro:        { from: 'from-blue-500',  to: 'to-indigo-600', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-  enterprise: { from: 'from-purple-500', to: 'to-violet-600', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+async function fetchAbonnements() {
+  const { data } = await supabase
+    .from('abonnements')
+    .select('id, plan, max_equipements, max_techniciens, montant')
+  return data ?? []
+}
+
+const PLAN_GRADIENT: Record<string, { from: string; to: string }> = {
+  starter:    { from: 'from-slate-500', to: 'to-slate-600' },
+  medium:     { from: 'from-blue-500',  to: 'to-indigo-600' },
+  premium:    { from: 'from-purple-500', to: 'to-violet-600' },
+}
+
+const PLAN_LABEL: Record<string, string> = {
+  starter: 'Starter', medium: 'Medium', premium: 'Premium',
 }
 
 function daysUntil(dateStr: string): number {
@@ -55,52 +58,28 @@ function formatDate(iso: string) {
 
 // ----- Modal création contrat -----
 
-interface CreateContractModalProps {
-  onClose: () => void
-}
-
-function CreateContractModal({ onClose }: CreateContractModalProps) {
+function CreateContractModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
-  const [companyId, setCompanyId] = useState('')
-  const [plan, setPlan] = useState<ContractPlan>('starter')
+  const [clientId, setClientId] = useState('')
+  const [abonnementId, setAbonnementId] = useState('')
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies-without-contract'],
-    queryFn: fetchCompaniesWithoutContract,
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-without-contrat'],
+    queryFn: fetchClientsWithoutContrat,
   })
-  const { data: publicConfig } = useQuery({
-    queryKey: ['public-config'],
-    queryFn: fetchPublicConfig,
+  const { data: abonnements = [] } = useQuery({
+    queryKey: ['abonnements-list'],
+    queryFn: fetchAbonnements,
   })
 
-  const planRuntime = {
-    starter: {
-      maxEquipment: publicConfig?.pricing.starter.max_equipment ?? CONTRACT_PLANS.starter.maxEquipment,
-      maxTechnicians: publicConfig?.pricing.starter.max_technicians ?? CONTRACT_PLANS.starter.maxTechnicians,
-      price: publicConfig?.pricing.starter.price_fcfa ?? CONTRACT_PLANS.starter.price,
-    },
-    medium: {
-      maxEquipment: publicConfig?.pricing.medium.max_equipment ?? CONTRACT_PLANS.medium.maxEquipment,
-      maxTechnicians: publicConfig?.pricing.medium.max_technicians ?? CONTRACT_PLANS.medium.maxTechnicians,
-      price: publicConfig?.pricing.medium.price_fcfa ?? CONTRACT_PLANS.medium.price,
-    },
-    premium: {
-      maxEquipment: publicConfig?.pricing.premium.max_equipment ?? CONTRACT_PLANS.premium.maxEquipment,
-      maxTechnicians: publicConfig?.pricing.premium.max_technicians ?? CONTRACT_PLANS.premium.maxTechnicians,
-      price: publicConfig?.pricing.premium.price_fcfa ?? CONTRACT_PLANS.premium.price,
-    },
-  } as const
-
-  const selectedPlan = (plan === 'starter' || plan === 'medium' || plan === 'premium')
-    ? planRuntime[plan]
-    : planRuntime.starter
+  const selectedAbonnement = (abonnements as any[]).find((a) => a.id === abonnementId)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!companyId) { setError('Choisissez une entreprise.'); return }
+    if (!clientId || !abonnementId) { setError("Choisissez une entreprise et un abonnement."); return }
     setError(null)
     setCreating(true)
 
@@ -108,26 +87,21 @@ function CreateContractModal({ onClose }: CreateContractModalProps) {
       const endDate = new Date(startDate)
       endDate.setFullYear(endDate.getFullYear() + 1)
 
-      const { data: contract, error: contractErr } = await supabase
-        .from('contracts')
+      const { error: contractErr } = await supabase
+        .from('contrats')
         .insert({
-          company_id: companyId,
-          plan: (plan === 'starter' || plan === 'medium' || plan === 'premium') ? plan : 'starter',
-          max_equipment: selectedPlan.maxEquipment,
-          max_technicians: selectedPlan.maxTechnicians,
-          price_fcfa: selectedPlan.price,
-          start_date: startDate,
-          end_date: endDate.toISOString().split('T')[0],
-          is_active: true,
+          client_id: clientId,
+          abonnement_id: abonnementId,
+          date_debut: startDate,
+          date_fin: endDate.toISOString().split('T')[0],
+          est_actif: true,
+          nbr_equip_actuel: 0,
+          nbr_techniciens_actuel: 0,
         })
-        .select()
-        .single()
       if (contractErr) throw contractErr
 
-      await supabase.from('companies').update({ contract_id: contract.id }).eq('id', companyId)
-
-      queryClient.invalidateQueries({ queryKey: ['contracts-list'] })
-      queryClient.invalidateQueries({ queryKey: ['companies-without-contract'] })
+      queryClient.invalidateQueries({ queryKey: ['contrats-list'] })
+      queryClient.invalidateQueries({ queryKey: ['clients-without-contrat'] })
       onClose()
     } catch (err: any) {
       setError(err?.message ?? 'Erreur lors de la création.')
@@ -135,12 +109,6 @@ function CreateContractModal({ onClose }: CreateContractModalProps) {
       setCreating(false)
     }
   }
-
-  const planOptions: { key: ContractPlan; icon: string; features: string[] }[] = [
-    { key: 'starter', icon: '🌱', features: [`${planRuntime.starter.maxEquipment} équip.`, `${planRuntime.starter.maxTechnicians} tech.`] },
-    { key: 'medium', icon: '⚡', features: [`${planRuntime.medium.maxEquipment} équip.`, `${planRuntime.medium.maxTechnicians} tech.`] },
-    { key: 'premium', icon: '🏢', features: [`${planRuntime.premium.maxEquipment} équip.`, `${planRuntime.premium.maxTechnicians} tech.`] },
-  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -160,49 +128,54 @@ function CreateContractModal({ onClose }: CreateContractModalProps) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Entreprise</label>
             <select
-              value={companyId}
-              onChange={(e) => setCompanyId(e.target.value)}
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Choisir une entreprise…</option>
-              {companies.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
+              {(clients as any[]).map((c) => (
+                <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
               ))}
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Plan</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {planOptions.map((p) => {
-                const g = PLAN_GRADIENT[p.key]
-                const runtimeInfo = p.key === 'starter' ? planRuntime.starter : p.key === 'medium' ? planRuntime.medium : planRuntime.premium
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setPlan(p.key)}
-                    className={`border-2 rounded-xl p-3 text-left transition-all ${
-                      plan === p.key
-                        ? `border-transparent bg-gradient-to-br ${g.from} ${g.to} shadow-sm`
-                        : 'border-border hover:border-primary/40'
-                    }`}
-                  >
-                    <p className="text-base mb-1">{p.icon}</p>
-                    <p className={`font-semibold text-xs capitalize ${plan === p.key ? 'text-white' : 'text-foreground'}`}>
-                      {p.key === 'starter' ? 'Starter' : p.key === 'medium' ? 'Medium' : 'Premium'}
-                    </p>
-                    <p className={`text-xs mt-0.5 ${plan === p.key ? 'text-white/70' : 'text-muted-foreground'}`}>
-                      {p.features.join(' · ')}
-                    </p>
-                    <p className={`text-xs mt-1 font-semibold ${plan === p.key ? 'text-white/90' : 'text-foreground'}`}>
-                      {runtimeInfo.price.toLocaleString('fr-FR')}
-                      <span className={`font-normal text-[10px] ml-0.5 ${plan === p.key ? 'text-white/60' : 'text-muted-foreground'}`}> FCFA</span>
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Abonnement</label>
+            {(abonnements as any[]).length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(abonnements as any[]).map((ab) => {
+                  const g = PLAN_GRADIENT[ab.plan] ?? PLAN_GRADIENT.starter
+                  const isSelected = abonnementId === ab.id
+                  return (
+                    <button
+                      key={ab.id}
+                      type="button"
+                      onClick={() => setAbonnementId(ab.id)}
+                      className={`border-2 rounded-xl p-3 text-left transition-all ${
+                        isSelected
+                          ? `border-transparent bg-gradient-to-br ${g.from} ${g.to} shadow-sm`
+                          : 'border-border hover:border-primary/40'
+                      }`}
+                    >
+                      <p className={`font-semibold text-xs capitalize ${isSelected ? 'text-white' : 'text-foreground'}`}>
+                        {PLAN_LABEL[ab.plan] ?? ab.plan}
+                      </p>
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>
+                        {ab.max_equipements} équip. · {ab.max_techniciens} tech.
+                      </p>
+                      <p className={`text-xs mt-1 font-semibold ${isSelected ? 'text-white/90' : 'text-foreground'}`}>
+                        {(ab.montant ?? 0).toLocaleString('fr-FR')}
+                        <span className={`font-normal text-[10px] ml-0.5 ${isSelected ? 'text-white/60' : 'text-muted-foreground'}`}> FCFA</span>
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                Aucun abonnement disponible. Créez d'abord des abonnements dans Supabase.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -217,7 +190,7 @@ function CreateContractModal({ onClose }: CreateContractModalProps) {
 
           <div className="bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground flex items-center gap-2">
             <Calendar size={13} />
-            Durée : 1 an · {plan === 'starter' ? 'Starter' : plan === 'medium' ? 'Medium' : 'Premium'} · {selectedPlan.maxEquipment} équipements max
+            Durée : 1 an — {selectedAbonnement ? `${selectedAbonnement.max_equipements} équipements max` : 'Sélectionnez un abonnement'}
           </div>
 
           <div className="flex gap-3">
@@ -248,26 +221,24 @@ export function ContractsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data: contracts = [], isLoading } = useQuery({
-    queryKey: ['contracts-list'],
-    queryFn: fetchContractsWithCompanies,
+  const { data: contrats = [], isLoading } = useQuery({
+    queryKey: ['contrats-list'],
+    queryFn: fetchContrats,
   })
 
-  const active = contracts.filter((c: any) => c.is_active).length
-  const expiringSoon = contracts.filter((c: any) => {
-    const days = daysUntil(c.end_date)
-    return c.is_active && days >= 0 && days <= 30
+  const active = contrats.filter((c: any) => c.est_actif).length
+  const expiringSoon = contrats.filter((c: any) => {
+    const days = daysUntil(c.date_fin)
+    return c.est_actif && days >= 0 && days <= 30
   }).length
 
-  async function toggleContractStatus(id: string, isActive: boolean) {
-    await supabase.from('contracts').update({ is_active: !isActive }).eq('id', id)
-    queryClient.invalidateQueries({ queryKey: ['contracts-list'] })
+  async function toggleContratStatus(id: string, isActive: boolean) {
+    await supabase.from('contrats').update({ est_actif: !isActive }).eq('id', id)
+    queryClient.invalidateQueries({ queryKey: ['contrats-list'] })
   }
 
   return (
     <div className="space-y-6 page-transition">
-
-      {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Contrats</h1>
@@ -286,48 +257,42 @@ export function ContractsPage() {
         </button>
       </div>
 
-      {/* Alertes expiration */}
       {expiringSoon > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
           <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
             <AlertTriangle size={16} className="text-white" />
           </div>
           <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
-            {expiringSoon} contrat{expiringSoon > 1 ? 's' : ''} expire{expiringSoon > 1 ? 'nt' : ''} dans moins de 30 jours. Pensez au renouvellement.
+            {expiringSoon} contrat{expiringSoon > 1 ? 's' : ''} expire{expiringSoon > 1 ? 'nt' : ''} dans moins de 30 jours.
           </p>
         </div>
       )}
 
-      {/* Liste contrats */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={24} className="animate-spin text-muted-foreground" />
         </div>
-      ) : contracts.length === 0 ? (
+      ) : contrats.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
             <FileText size={28} className="text-muted-foreground/40" />
           </div>
           <p className="text-sm text-muted-foreground">Aucun contrat créé</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="text-sm text-primary hover:underline"
-          >
+          <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">
             Créer le premier contrat
           </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {contracts.map((contract: any) => {
-            const days = daysUntil(contract.end_date)
+          {contrats.map((contrat: any) => {
+            const days = daysUntil(contrat.date_fin)
             const isExpired = days < 0
             const isExpiringSoon = days >= 0 && days <= 30
-            const planKey = contract.plan as ContractPlan
+            const planKey = (contrat.abonnements?.plan ?? 'starter') as TypePlan
             const g = PLAN_GRADIENT[planKey] ?? PLAN_GRADIENT.starter
 
             return (
-              <div key={contract.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                {/* Header carte avec gradient plan */}
+              <div key={contrat.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div className={`relative overflow-hidden bg-gradient-to-r ${g.from} ${g.to} px-5 py-4`}>
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-white" />
@@ -338,33 +303,33 @@ export function ContractsPage() {
                         <Building2 size={16} className="text-white" />
                       </div>
                       <div>
-                        <p className="font-semibold text-white">{contract.companies?.company_name}</p>
-                        <p className="text-white/70 text-xs capitalize">{CONTRACT_PLANS[planKey]?.label ?? contract.plan}</p>
+                        <p className="font-semibold text-white">{contrat.clients?.nom_entreprise ?? '—'}</p>
+                        <p className="text-white/70 text-xs capitalize">{PLAN_LABEL[planKey] ?? planKey}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-bold text-sm">{contract.price_fcfa.toLocaleString('fr-FR')}</p>
+                      <p className="text-white font-bold text-sm">
+                        {(contrat.abonnements?.montant ?? 0).toLocaleString('fr-FR')}
+                      </p>
                       <p className="text-white/60 text-xs">FCFA / an</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 space-y-3">
-                  {/* Dates */}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Calendar size={12} />
-                    <span>Du {formatDate(contract.start_date)}</span>
+                    <span>Du {formatDate(contrat.date_debut)}</span>
                     <span>→</span>
                     <span className={`font-medium ${isExpired ? 'text-destructive' : isExpiringSoon ? 'text-amber-600' : 'text-foreground'}`}>
-                      {formatDate(contract.end_date)}
+                      {formatDate(contrat.date_fin)}
                       {isExpired && ' · Expiré'}
                       {!isExpired && isExpiringSoon && ` · J-${days}`}
                     </span>
                   </div>
 
-                  {/* Statut + badge */}
                   <div className="flex items-center gap-2">
-                    {!contract.is_active ? (
+                    {!contrat.est_actif ? (
                       <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-full font-medium">Inactif</span>
                     ) : isExpired ? (
                       <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2.5 py-1 rounded-full font-medium">Expiré</span>
@@ -377,27 +342,26 @@ export function ContractsPage() {
                     )}
                   </div>
 
-                  {/* Quotas */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-muted/50 rounded-lg p-2.5">
                       <p className="text-xs text-muted-foreground">Équipements max</p>
-                      <p className="text-sm font-bold text-foreground mt-0.5">{contract.max_equipment}</p>
+                      <p className="text-sm font-bold text-foreground mt-0.5">{contrat.abonnements?.max_equipements ?? '—'}</p>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-2.5">
                       <p className="text-xs text-muted-foreground">Techniciens max</p>
-                      <p className="text-sm font-bold text-foreground mt-0.5">{contract.max_technicians}</p>
+                      <p className="text-sm font-bold text-foreground mt-0.5">{contrat.abonnements?.max_techniciens ?? '—'}</p>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => toggleContractStatus(contract.id, contract.is_active)}
+                    onClick={() => toggleContratStatus(contrat.id, contrat.est_actif)}
                     className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      contract.is_active
+                      contrat.est_actif
                         ? 'border border-border text-muted-foreground hover:bg-accent'
                         : 'border border-primary/40 text-primary hover:bg-primary/10'
                     }`}
                   >
-                    {contract.is_active ? 'Désactiver le contrat' : 'Réactiver le contrat'}
+                    {contrat.est_actif ? 'Désactiver le contrat' : 'Réactiver le contrat'}
                   </button>
                 </div>
               </div>

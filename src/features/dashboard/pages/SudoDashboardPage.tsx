@@ -24,28 +24,28 @@ type AdminForm = { email: string; password: string; full_name: string }
 
 async function fetchSudoStats() {
   const results = await Promise.all([
-    supabase.from('companies').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
-    supabase.from('technicians').select('*', { count: 'exact', head: true }),
-    supabase.from('equipment').select('*', { count: 'exact', head: true }),
+    supabase.from('clients').select('*', { count: 'exact', head: true }),
+    supabase.from('utilisateurs').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
+    supabase.from('techniciens').select('*', { count: 'exact', head: true }),
+    supabase.from('equipements').select('*', { count: 'exact', head: true }),
     supabase.from('interventions').select('*', { count: 'exact', head: true }),
-    supabase.from('contracts').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
-      .eq('is_validated', false).in('role', ['entreprise', 'technicien']),
+    supabase.from('contrats').select('*', { count: 'exact', head: true }).eq('est_actif', true),
+    supabase.from('utilisateurs').select('*', { count: 'exact', head: true })
+      .eq('compte_valide', false).in('role', ['client', 'technicien']),
     supabase.from('interventions').select('*', { count: 'exact', head: true })
-      .eq('urgency', 'critique').in('status', ['active', 'en_cours']),
-    supabase.from('profiles').select('id, full_name, email, is_active, created_at')
-      .eq('role', 'admin').order('created_at', { ascending: false }),
+      .eq('urgence', 'critique').in('statut', ['planifiee', 'en_cours']),
+    supabase.from('utilisateurs').select('id, nom, prenom, email, est_actif, cree_le')
+      .eq('role', 'admin').order('cree_le', { ascending: false }),
     supabase.from('interventions')
-      .select('id, title, urgency, status, created_at, companies(company_name)')
-      .in('status', ['active', 'en_cours', 'en_attente_validation'])
-      .order('created_at', { ascending: false })
+      .select('id, titre, urgence, statut, cree_le, clients(nom_entreprise)')
+      .in('statut', ['planifiee', 'en_cours', 'terminee'])
+      .order('cree_le', { ascending: false })
       .limit(8),
-    supabase.from('profiles')
-      .select('id, full_name, email, role, created_at, companies(company_name)')
-      .eq('is_validated', false)
-      .in('role', ['entreprise', 'technicien'])
-      .order('created_at', { ascending: false })
+    supabase.from('utilisateurs')
+      .select('id, nom, prenom, email, role, cree_le, clients(nom_entreprise)')
+      .eq('compte_valide', false)
+      .in('role', ['client', 'technicien'])
+      .order('cree_le', { ascending: false })
       .limit(10),
   ])
   for (const r of results) {
@@ -68,10 +68,10 @@ async function fetchSudoStats() {
 }
 
 async function fetchAllCompanies(search: string) {
-  let q = supabase.from('companies')
-    .select('id, company_name, city, sector, created_at, profiles!companies_user_id_fkey(full_name, email, is_active, is_validated)')
-    .order('created_at', { ascending: false })
-  if (search) q = q.ilike('company_name', `%${search}%`)
+  let q = supabase.from('clients')
+    .select('id, nom_entreprise, ville, secteur, cree_le, utilisateurs!clients_utilisateur_id_fkey(nom, prenom, email, est_actif, compte_valide)')
+    .order('cree_le', { ascending: false })
+  if (search) q = q.ilike('nom_entreprise', `%${search}%`)
   const { data, error } = await q
   if (error) throw error
   return data ?? []
@@ -80,14 +80,14 @@ async function fetchAllCompanies(search: string) {
 // ----- Composants UI -----
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active', en_cours: 'En cours',
-  en_attente_validation: 'En attente', cloturee: 'Clôturée', annulee: 'Annulée',
+  planifiee: 'Planifiée', en_cours: 'En cours',
+  terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 const STATUS_COLOR: Record<string, string> = {
-  active: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+  planifiee: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
   en_cours: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  en_attente_validation: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  cloturee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+  terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
+  signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 const URGENCY_DOT: Record<string, string> = {
@@ -151,12 +151,12 @@ export function SudoDashboardPage() {
   // Validation / désactivation d'un utilisateur depuis l'onglet pending
   const { mutate: doValidate } = useMutation({
     mutationFn: async (userId: string) => {
-      await supabase.from('profiles').update({ is_validated: true, is_active: true }).eq('id', userId)
+      await supabase.from('utilisateurs').update({ compte_valide: true, est_actif: true }).eq('id', userId)
       await supabase.from('notifications').insert({
-        user_id: userId, type: 'account_validated',
-        title: 'Compte validé',
-        body: "Votre compte a été validé par un administrateur.",
-        link: '/',
+        utilisateur_id: userId,
+        titre: 'Compte validé',
+        corps: "Votre compte a été validé par un administrateur.",
+        lien: '/',
       })
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sudo-stats'] }),
@@ -164,14 +164,13 @@ export function SudoDashboardPage() {
 
   const { mutate: doReject } = useMutation({
     mutationFn: async (userId: string) => {
-      // Désactive sans valider — le compte reste bloqué
-      await supabase.from('profiles').update({ is_active: false }).eq('id', userId)
+      await supabase.from('utilisateurs').update({ est_actif: false }).eq('id', userId)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sudo-stats'] }),
   })
 
   async function handleToggleAdmin(id: string, isActive: boolean) {
-    await supabase.from('profiles').update({ is_active: !isActive }).eq('id', id)
+    await supabase.from('utilisateurs').update({ est_actif: !isActive }).eq('id', id)
     queryClient.invalidateQueries({ queryKey: ['sudo-stats'] })
   }
 
@@ -320,15 +319,15 @@ export function SudoDashboardPage() {
                     to={`/admin/interventions/${i.id}`}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors"
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[i.urgency]}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[i.urgence]}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{i.title}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{i.titre}</p>
                       <p className="text-xs text-muted-foreground">
-                        {i.companies?.company_name} · {new Date(i.created_at).toLocaleDateString('fr-FR')}
+                        {i.clients?.nom_entreprise} · {new Date(i.cree_le).toLocaleDateString('fr-FR')}
                       </p>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${STATUS_COLOR[i.status]}`}>
-                      {STATUS_LABEL[i.status]}
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${STATUS_COLOR[i.statut]}`}>
+                      {STATUS_LABEL[i.statut]}
                     </span>
                   </Link>
                 ))}
@@ -461,30 +460,30 @@ export function SudoDashboardPage() {
                   <div key={admin.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-primary">{admin.full_name?.[0]?.toUpperCase()}</span>
+                        <span className="text-xs font-bold text-primary">{admin.nom?.[0]?.toUpperCase()}</span>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{admin.full_name}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{admin.nom} {admin.prenom}</p>
                         <p className="text-xs text-muted-foreground truncate">{admin.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        admin.is_active
+                        admin.est_actif
                           ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
                           : 'bg-muted text-muted-foreground'
                       }`}>
-                        {admin.is_active ? 'Actif' : 'Inactif'}
+                        {admin.est_actif ? 'Actif' : 'Inactif'}
                       </span>
                       <button
-                        onClick={() => handleToggleAdmin(admin.id, admin.is_active)}
+                        onClick={() => handleToggleAdmin(admin.id, admin.est_actif)}
                         className={`text-xs px-2 py-1 rounded border transition-colors ${
-                          admin.is_active
+                          admin.est_actif
                             ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400'
                             : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400'
                         }`}
                       >
-                        {admin.is_active ? 'Désactiver' : 'Activer'}
+                        {admin.est_actif ? 'Désactiver' : 'Activer'}
                       </button>
                     </div>
                   </div>
@@ -530,23 +529,23 @@ export function SudoDashboardPage() {
                   </thead>
                   <tbody>
                     {companies.map((c: any) => {
-                      const profile = c['profiles!companies_user_id_fkey']
+                      const utilisateur = c['utilisateurs!clients_utilisateur_id_fkey']
                       return (
                         <tr key={c.id} className="border-b border-border hover:bg-accent/30 transition-colors">
                           <td className="px-4 py-3">
-                            <p className="text-sm font-medium text-foreground">{c.company_name}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString('fr-FR')}</p>
+                            <p className="text-sm font-medium text-foreground">{c.nom_entreprise}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(c.cree_le).toLocaleDateString('fr-FR')}</p>
                           </td>
                           <td className="px-4 py-3 hidden md:table-cell">
-                            <p className="text-xs text-muted-foreground">{c.sector || '—'}</p>
-                            <p className="text-xs text-muted-foreground">{c.city || '—'}</p>
+                            <p className="text-xs text-muted-foreground">{c.secteur || '—'}</p>
+                            <p className="text-xs text-muted-foreground">{c.ville || '—'}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <p className="text-xs text-foreground">{profile?.full_name ?? '—'}</p>
-                            <p className="text-xs text-muted-foreground">{profile?.email ?? '—'}</p>
+                            <p className="text-xs text-foreground">{utilisateur ? `${utilisateur.nom} ${utilisateur.prenom ?? ''}`.trim() : '—'}</p>
+                            <p className="text-xs text-muted-foreground">{utilisateur?.email ?? '—'}</p>
                           </td>
                           <td className="px-4 py-3">
-                            {profile?.is_validated
+                            {utilisateur?.compte_valide
                               ? <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 font-medium">Validée</span>
                               : <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 font-medium">En attente</span>
                             }
@@ -593,11 +592,11 @@ export function SudoDashboardPage() {
                   <div key={user.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-xs font-bold text-muted-foreground">
-                        {user.full_name?.[0]?.toUpperCase() ?? '?'}
+                        {user.nom?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {user['companies']?.company_name ?? user.full_name}
+                          {user['clients']?.nom_entreprise ?? `${user.nom} ${user.prenom ?? ''}`.trim()}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         <p className="text-xs text-primary mt-0.5 capitalize">{user.role}</p>

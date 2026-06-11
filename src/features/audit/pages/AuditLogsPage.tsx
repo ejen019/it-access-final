@@ -22,7 +22,7 @@ export function AuditLogsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('audit_logs')
-        .select('id, actor_id, actor_role, action, entity_type, entity_id, details, created_at, profiles(full_name, email)')
+        .select('id, actor_id, actor_role, action, entity_type, entity_id, details, created_at, utilisateurs(nom, prenom, email)')
         .order('created_at', { ascending: false })
         .limit(500)
       if (error) throw error
@@ -34,7 +34,7 @@ export function AuditLogsPage() {
     const q = search.trim().toLowerCase()
     if (!q) return logs
     return logs.filter((log: any) => {
-      const actor = `${log.profiles?.full_name ?? ''} ${log.profiles?.email ?? ''}`.toLowerCase()
+      const actor = `${log.utilisateurs?.prenom ?? ''} ${log.utilisateurs?.nom ?? ''} ${log.utilisateurs?.email ?? ''}`.toLowerCase()
       const line = `${log.action} ${log.entity_type} ${log.entity_id ?? ''} ${log.actor_role ?? ''}`.toLowerCase()
       return actor.includes(q) || line.includes(q)
     })
@@ -86,8 +86,10 @@ export function AuditLogsPage() {
                   <tr key={log.id} className="border-b border-border align-top hover:bg-accent/30">
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(log.created_at)}</td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-foreground">{log.profiles?.full_name ?? 'Utilisateur supprimé'}</p>
-                      <p className="text-xs text-muted-foreground">{log.profiles?.email ?? log.actor_id}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {log.utilisateurs ? `${log.utilisateurs.prenom ?? ''} ${log.utilisateurs.nom}`.trim() : 'Utilisateur supprimé'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{log.utilisateurs?.email ?? log.actor_id}</p>
                       <p className="text-[11px] text-muted-foreground uppercase mt-0.5">{log.actor_role ?? 'inconnu'}</p>
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{log.action}</td>

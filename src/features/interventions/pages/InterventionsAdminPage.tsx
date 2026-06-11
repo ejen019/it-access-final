@@ -1,8 +1,5 @@
 // =============================================================
 // InterventionsAdminPage — Vue globale des interventions (Admin)
-//
-// Liste toutes les interventions. Filtres par statut, urgence, entreprise.
-// Actions : Créer, Voir détail, Annuler
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -11,28 +8,28 @@ import { Plus, Search, Clock, Ban, Wrench, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import {
-  useAllInterventions,
-  useCreateIntervention,
-  useUpdateInterventionStatus,
+  useToutesInterventions,
+  useCreerIntervention,
+  useChangerStatutIntervention,
   type InterventionInput,
 } from '../hooks/useInterventions'
-import type { UrgencyLevel } from '@/types'
+import type { NiveauUrgence } from '@/types'
 
 // ----- Helpers visuels -----
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active',
+  planifiee: 'Planifiée',
   en_cours: 'En cours',
-  en_attente_validation: 'En attente',
-  cloturee: 'Clôturée',
+  terminee: 'Terminée',
+  signee: 'Signée',
   annulee: 'Annulée',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  en_attente_validation: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  cloturee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 
@@ -58,46 +55,45 @@ function formatDate(iso: string) {
 
 // ----- Requêtes de formulaire -----
 
-async function fetchCompanies() {
-  const { data, error } = await supabase.from('companies').select('id, company_name')
+async function fetchClients() {
+  const { data, error } = await supabase.from('clients').select('id, nom_entreprise')
   if (error) throw error
   return data ?? []
 }
 
-async function fetchCompanyEquipment(companyId: string) {
+async function fetchClientEquipements(clientId: string) {
   const { data } = await supabase
-    .from('equipment')
-    .select('id, name, category')
-    .eq('company_id', companyId)
-    .eq('status', 'en_panne')
-    .order('name')
+    .from('equipements')
+    .select('id, nom, categorie')
+    .eq('client_id', clientId)
+    .eq('etat', 'en_panne')
+    .order('nom')
   return data ?? []
 }
 
-async function fetchCompanyTechnicians(companyId: string) {
-  // Step 1: get technician IDs for this company
-  const { data: assignments, error: err1 } = await supabase
-    .from('assignments')
-    .select('technician_id, technicians(user_id)')
-    .eq('company_id', companyId)
-  if (err1) throw err1
+async function fetchClientTechniciens(clientId: string) {
+  const { data: affectations, error } = await supabase
+    .from('affectations')
+    .select('technicien_id, techniciens(utilisateur_id)')
+    .eq('client_id', clientId)
+  if (error) throw error
 
-  const entries = (assignments ?? [])
-    .map((a: any) => ({ techId: a.technician_id, userId: a.technicians?.user_id as string }))
+  const entries = (affectations ?? [])
+    .map((a: any) => ({ techId: a.technicien_id, userId: a.techniciens?.utilisateur_id as string }))
     .filter((e) => e.userId)
 
   if (!entries.length) return []
 
-  // Step 2: get profile names
   const userIds = entries.map((e) => e.userId)
-  const { data: profiles, error: err2 } = await supabase
-    .from('profiles')
-    .select('id, full_name')
+  const { data: users } = await supabase
+    .from('utilisateurs')
+    .select('id, nom, prenom')
     .in('id', userIds)
-  if (err2) throw err2
 
-  const nameMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.full_name]))
-  return entries.map((e) => ({ userId: e.userId, name: nameMap[e.userId] ?? 'Technicien' }))
+  const nameMap = Object.fromEntries(
+    (users ?? []).map((u: any) => [u.id, `${u.prenom} ${u.nom}`.trim()])
+  )
+  return entries.map((e) => ({ techId: e.techId, userId: e.userId, name: nameMap[e.userId] ?? 'Technicien' }))
 }
 
 // ----- Composant modal création -----
@@ -108,55 +104,55 @@ interface CreateModalProps {
 
 function CreateModal({ onClose }: CreateModalProps) {
   const { profile } = useAuthStore()
-  const createMutation = useCreateIntervention()
+  const createMutation = useCreerIntervention()
 
-  const [companyId, setCompanyId] = useState('')
-  const [title, setTitle] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [titre, setTitre] = useState('')
   const [description, setDescription] = useState('')
-  const [urgency, setUrgency] = useState<UrgencyLevel>('moyenne')
-  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+  const [urgence, setUrgence] = useState<NiveauUrgence>('moyenne')
+  const [selectedEquipements, setSelectedEquipements] = useState<string[]>([])
   const [selectedTechs, setSelectedTechs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  const { data: companies = [] } = useQuery({ queryKey: ['companies-list'], queryFn: fetchCompanies })
-  const { data: equipment = [] } = useQuery({
-    queryKey: ['company-equipment-panne', companyId],
-    queryFn: () => fetchCompanyEquipment(companyId),
-    enabled: !!companyId,
+  const { data: clients = [] } = useQuery({ queryKey: ['clients-list'], queryFn: fetchClients })
+  const { data: equipements = [] } = useQuery({
+    queryKey: ['client-equipements-panne', clientId],
+    queryFn: () => fetchClientEquipements(clientId),
+    enabled: !!clientId,
   })
-  const { data: technicians = [] } = useQuery({
-    queryKey: ['company-techs', companyId],
-    queryFn: () => fetchCompanyTechnicians(companyId),
-    enabled: !!companyId,
+  const { data: techniciens = [] } = useQuery({
+    queryKey: ['client-techs', clientId],
+    queryFn: () => fetchClientTechniciens(clientId),
+    enabled: !!clientId,
   })
 
-  function toggleEquipment(id: string) {
-    setSelectedEquipment((prev) =>
+  function toggleEquipement(id: string) {
+    setSelectedEquipements((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     )
   }
 
-  function toggleTech(uid: string) {
+  function toggleTech(techId: string) {
     setSelectedTechs((prev) =>
-      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+      prev.includes(techId) ? prev.filter((x) => x !== techId) : [...prev, techId]
     )
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!companyId || !title.trim() || !description.trim()) {
-      setError('Renseignez l\'entreprise, le titre et la description.')
+    if (!clientId || !titre.trim() || !description.trim()) {
+      setError("Renseignez l'entreprise, le titre et la description.")
       return
     }
     setError(null)
     const input: InterventionInput = {
-      company_id: companyId,
-      equipment_ids: selectedEquipment,
-      title: title.trim(),
+      client_id: clientId,
+      equipement_ids: selectedEquipements,
+      titre: titre.trim(),
       description: description.trim(),
-      urgency,
-      technician_ids: selectedTechs,
-      created_by: profile!.id,
+      urgence,
+      technicien_ids: selectedTechs,
+      cree_par: profile!.id,
     }
     try {
       await createMutation.mutateAsync(input)
@@ -167,9 +163,9 @@ function CreateModal({ onClose }: CreateModalProps) {
   }
 
   const urgencyConfig = [
-    { value: 'faible' as UrgencyLevel,   label: 'Faible',   from: 'from-slate-400',  to: 'to-slate-500' },
-    { value: 'moyenne' as UrgencyLevel,  label: 'Moyenne',  from: 'from-amber-400',  to: 'to-orange-500' },
-    { value: 'critique' as UrgencyLevel, label: 'Critique', from: 'from-red-400',    to: 'to-rose-600' },
+    { value: 'faible' as NiveauUrgence,   label: 'Faible',   from: 'from-slate-400',  to: 'to-slate-500' },
+    { value: 'moyenne' as NiveauUrgence,  label: 'Moyenne',  from: 'from-amber-400',  to: 'to-orange-500' },
+    { value: 'critique' as NiveauUrgence, label: 'Critique', from: 'from-red-400',    to: 'to-rose-600' },
   ]
 
   return (
@@ -193,13 +189,13 @@ function CreateModal({ onClose }: CreateModalProps) {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Entreprise *</label>
             <select
-              value={companyId}
-              onChange={(e) => { setCompanyId(e.target.value); setSelectedEquipment([]); setSelectedTechs([]) }}
+              value={clientId}
+              onChange={(e) => { setClientId(e.target.value); setSelectedEquipements([]); setSelectedTechs([]) }}
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Choisir une entreprise…</option>
-              {companies.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
+              {(clients as any[]).map((c) => (
+                <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
               ))}
             </select>
           </div>
@@ -208,8 +204,8 @@ function CreateModal({ onClose }: CreateModalProps) {
             <label className="text-sm font-medium text-foreground">Titre *</label>
             <input
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
               placeholder="Ex: Panne serveur principal"
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -233,9 +229,9 @@ function CreateModal({ onClose }: CreateModalProps) {
                 <button
                   key={u.value}
                   type="button"
-                  onClick={() => setUrgency(u.value)}
+                  onClick={() => setUrgence(u.value)}
                   className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
-                    urgency === u.value
+                    urgence === u.value
                       ? `bg-gradient-to-br ${u.from} ${u.to} text-white border-transparent shadow-sm`
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
@@ -246,38 +242,38 @@ function CreateModal({ onClose }: CreateModalProps) {
             </div>
           </div>
 
-          {companyId && equipment.length > 0 && (
+          {clientId && (equipements as any[]).length > 0 && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
                 Équipements concernés <span className="text-muted-foreground font-normal text-xs">(en panne)</span>
               </label>
               <div className="max-h-32 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
-                {equipment.map((eq: any) => (
+                {(equipements as any[]).map((eq) => (
                   <label key={eq.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded-lg p-1.5">
                     <input
                       type="checkbox"
-                      checked={selectedEquipment.includes(eq.id)}
-                      onChange={() => toggleEquipment(eq.id)}
+                      checked={selectedEquipements.includes(eq.id)}
+                      onChange={() => toggleEquipement(eq.id)}
                       className="rounded"
                     />
-                    <span className="text-foreground">{eq.name}</span>
-                    {eq.category && <span className="text-muted-foreground text-xs">· {eq.category}</span>}
+                    <span className="text-foreground">{eq.nom}</span>
+                    {eq.categorie && <span className="text-muted-foreground text-xs">· {eq.categorie}</span>}
                   </label>
                 ))}
               </div>
             </div>
           )}
 
-          {companyId && technicians.length > 0 && (
+          {clientId && (techniciens as any[]).length > 0 && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Affecter des techniciens</label>
               <div className="space-y-1 border border-border rounded-lg p-2">
-                {technicians.map((t) => (
-                  <label key={t.userId} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded-lg p-1.5">
+                {(techniciens as any[]).map((t) => (
+                  <label key={t.techId} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded-lg p-1.5">
                     <input
                       type="checkbox"
-                      checked={selectedTechs.includes(t.userId)}
-                      onChange={() => toggleTech(t.userId)}
+                      checked={selectedTechs.includes(t.techId)}
+                      onChange={() => toggleTech(t.techId)}
                       className="rounded"
                     />
                     <span className="text-foreground">{t.name}</span>
@@ -300,7 +296,7 @@ function CreateModal({ onClose }: CreateModalProps) {
               disabled={createMutation.isPending}
               className="flex-1 px-4 py-2.5 gradient-primary text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors shadow-sm"
             >
-              {createMutation.isPending ? 'Création…' : 'Créer l\'intervention'}
+              {createMutation.isPending ? 'Création…' : "Créer l'intervention"}
             </button>
           </div>
         </form>
@@ -315,31 +311,31 @@ export function InterventionsAdminPage() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterUrgency, setFilterUrgency] = useState('')
-  const [filterCompany, setFilterCompany] = useState('')
+  const [filterClient, setFilterClient] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [cancelConfirm, setCancelConfirm] = useState<{ id: string; title: string } | null>(null)
+  const [cancelConfirm, setCancelConfirm] = useState<{ id: string; titre: string } | null>(null)
 
-  const { data: interventions = [], isLoading, error } = useAllInterventions()
-  const { data: companies = [] } = useQuery({ queryKey: ['companies-list'], queryFn: fetchCompanies })
-  const cancelMutation = useUpdateInterventionStatus()
+  const { data: interventions = [], isLoading, error } = useToutesInterventions()
+  const { data: clients = [] } = useQuery({ queryKey: ['clients-list'], queryFn: fetchClients })
+  const cancelMutation = useChangerStatutIntervention()
 
   const filtered = interventions.filter((i: any) => {
     const matchSearch =
-      i.title.toLowerCase().includes(search.toLowerCase()) ||
-      (i.companies?.company_name ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchStatus = !filterStatus || i.status === filterStatus
-    const matchUrgency = !filterUrgency || i.urgency === filterUrgency
-    const matchCompany = !filterCompany || i.company_id === filterCompany
-    return matchSearch && matchStatus && matchUrgency && matchCompany
+      (i.titre ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (i.clients?.nom_entreprise ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchStatus = !filterStatus || i.statut === filterStatus
+    const matchUrgency = !filterUrgency || i.urgence === filterUrgency
+    const matchClient = !filterClient || i.client_id === filterClient
+    return matchSearch && matchStatus && matchUrgency && matchClient
   })
 
   const stats = {
-    total: interventions.filter((i: any) => i.status !== 'annulee').length,
-    active: interventions.filter((i: any) => i.status === 'active').length,
-    en_cours: interventions.filter((i: any) => i.status === 'en_cours').length,
-    en_attente: interventions.filter((i: any) => i.status === 'en_attente_validation').length,
-    cloturees: interventions.filter((i: any) => i.status === 'cloturee').length,
-    critiques: interventions.filter((i: any) => i.urgency === 'critique' && ['active', 'en_cours'].includes(i.status)).length,
+    total: interventions.filter((i: any) => i.statut !== 'annulee').length,
+    planifiee: interventions.filter((i: any) => i.statut === 'planifiee').length,
+    en_cours: interventions.filter((i: any) => i.statut === 'en_cours').length,
+    terminee: interventions.filter((i: any) => i.statut === 'terminee').length,
+    signee: interventions.filter((i: any) => i.statut === 'signee').length,
+    critiques: interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut)).length,
   }
 
   return (
@@ -354,7 +350,7 @@ export function InterventionsAdminPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Interventions</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {stats.total} actives · {stats.en_cours} en cours · {stats.en_attente} en attente · {stats.cloturees} clôturées
+            {stats.total} actives · {stats.en_cours} en cours · {stats.terminee} terminées · {stats.signee} signées
           </p>
         </div>
         <button
@@ -369,10 +365,10 @@ export function InterventionsAdminPage() {
       {/* Mini stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Actives',    value: stats.active,    from: 'from-blue-500',   to: 'to-indigo-600',  textColor: 'text-blue-600 dark:text-blue-400' },
-          { label: 'En cours',   value: stats.en_cours,  from: 'from-orange-400', to: 'to-amber-500',   textColor: 'text-orange-600 dark:text-orange-400' },
-          { label: 'En attente', value: stats.en_attente, from: 'from-purple-400', to: 'to-violet-500', textColor: 'text-purple-600 dark:text-purple-400' },
-          { label: 'Critiques',  value: stats.critiques, from: 'from-red-400',    to: 'to-rose-500',    textColor: 'text-red-600 dark:text-red-400' },
+          { label: 'Planifiées',  value: stats.planifiee, from: 'from-blue-500',   to: 'to-indigo-600',  textColor: 'text-blue-600 dark:text-blue-400' },
+          { label: 'En cours',    value: stats.en_cours,  from: 'from-orange-400', to: 'to-amber-500',   textColor: 'text-orange-600 dark:text-orange-400' },
+          { label: 'Terminées',   value: stats.terminee,  from: 'from-purple-400', to: 'to-violet-500',  textColor: 'text-purple-600 dark:text-purple-400' },
+          { label: 'Critiques',   value: stats.critiques, from: 'from-red-400',    to: 'to-rose-500',    textColor: 'text-red-600 dark:text-red-400' },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <p className={`text-xl font-bold ${s.textColor}`}>{s.value}</p>
@@ -395,13 +391,13 @@ export function InterventionsAdminPage() {
           />
         </div>
         <select
-          value={filterCompany}
-          onChange={(e) => setFilterCompany(e.target.value)}
+          value={filterClient}
+          onChange={(e) => setFilterClient(e.target.value)}
           className="px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Toutes les entreprises</option>
-          {companies.map((c: any) => (
-            <option key={c.id} value={c.id}>{c.company_name}</option>
+          {(clients as any[]).map((c) => (
+            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
           ))}
         </select>
         <select
@@ -410,10 +406,10 @@ export function InterventionsAdminPage() {
           className="px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Tous les statuts</option>
-          <option value="active">Active</option>
+          <option value="planifiee">Planifiée</option>
           <option value="en_cours">En cours</option>
-          <option value="en_attente_validation">En attente</option>
-          <option value="cloturee">Clôturée</option>
+          <option value="terminee">Terminée</option>
+          <option value="signee">Signée</option>
           <option value="annulee">Annulée</option>
         </select>
         <select
@@ -456,35 +452,35 @@ export function InterventionsAdminPage() {
               </thead>
               <tbody>
                 {filtered.map((i: any) => (
-                  <tr key={i.id} className={`border-b border-border hover:bg-accent/40 transition-colors ${URGENCY_ROW_ACCENT[i.urgency]}`}>
+                  <tr key={i.id} className={`border-b border-border hover:bg-accent/40 transition-colors ${URGENCY_ROW_ACCENT[i.urgence] ?? ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {i.urgency === 'critique' && (
+                        {i.urgence === 'critique' && (
                           <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />
                         )}
                         <div>
-                          <p className="text-sm font-medium text-foreground line-clamp-1">{i.title}</p>
+                          <p className="text-sm font-medium text-foreground line-clamp-1">{i.titre}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {i.equipment_ids?.length ?? 0} équipement{(i.equipment_ids?.length ?? 0) > 1 ? 's' : ''}
+                            {i.interventions_equipements?.length ?? 0} équipement{(i.interventions_equipements?.length ?? 0) > 1 ? 's' : ''}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-sm text-muted-foreground">{i.companies?.company_name}</p>
+                      <p className="text-sm text-muted-foreground">{i.clients?.nom_entreprise ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[i.urgency]}`}>
-                        {URGENCY_LABEL[i.urgency]}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[i.urgence] ?? ''}`}>
+                        {URGENCY_LABEL[i.urgence]}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.status]}`}>
-                        {STATUS_LABEL[i.status]}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.statut] ?? ''}`}>
+                        {STATUS_LABEL[i.statut]}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <p className="text-xs text-muted-foreground">{formatDate(i.created_at)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(i.cree_le)}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
@@ -495,9 +491,9 @@ export function InterventionsAdminPage() {
                         >
                           <Clock size={16} />
                         </Link>
-                        {i.status !== 'cloturee' && i.status !== 'annulee' && (
+                        {i.statut !== 'signee' && i.statut !== 'annulee' && (
                           <button
-                            onClick={() => setCancelConfirm({ id: i.id, title: i.title })}
+                            onClick={() => setCancelConfirm({ id: i.id, titre: i.titre })}
                             title="Annuler"
                             className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
                           >
@@ -528,7 +524,7 @@ export function InterventionsAdminPage() {
               <h3 className="font-semibold text-foreground">Annuler l'intervention ?</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">{cancelConfirm.title}</strong> sera marquée comme annulée.
+              <strong className="text-foreground">{cancelConfirm.titre}</strong> sera marquée comme annulée.
               Cette action ne peut pas être défaite.
             </p>
             <div className="flex gap-3">
@@ -540,7 +536,7 @@ export function InterventionsAdminPage() {
               </button>
               <button
                 onClick={() => {
-                  cancelMutation.mutate({ id: cancelConfirm.id, status: 'annulee' })
+                  cancelMutation.mutate({ id: cancelConfirm.id, statut: 'annulee' })
                   setCancelConfirm(null)
                 }}
                 className="flex-1 px-4 py-2.5 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium transition-colors"

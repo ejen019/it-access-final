@@ -16,20 +16,20 @@ import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
 
 async function fetchAdminStats() {
   const results = await Promise.all([
-    supabase.from('companies').select('*', { count: 'exact', head: true }),
-    supabase.from('technicians').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
-      .eq('is_validated', false).in('role', ['entreprise', 'technicien']),
+    supabase.from('clients').select('*', { count: 'exact', head: true }),
+    supabase.from('techniciens').select('*', { count: 'exact', head: true }),
+    supabase.from('utilisateurs').select('*', { count: 'exact', head: true })
+      .eq('compte_valide', false).in('role', ['client', 'technicien']),
     supabase.from('interventions').select('*', { count: 'exact', head: true })
-      .in('status', ['active', 'en_cours', 'en_attente_validation']),
+      .in('statut', ['planifiee', 'en_cours', 'terminee']),
     supabase.from('interventions').select('*', { count: 'exact', head: true })
-      .eq('urgency', 'critique').in('status', ['active', 'en_cours']),
-    supabase.from('equipment').select('*', { count: 'exact', head: true }),
-    supabase.from('equipment').select('*', { count: 'exact', head: true })
-      .eq('status', 'en_panne'),
+      .eq('urgence', 'critique').in('statut', ['planifiee', 'en_cours']),
+    supabase.from('equipements').select('*', { count: 'exact', head: true }),
+    supabase.from('equipements').select('*', { count: 'exact', head: true })
+      .eq('etat', 'en_panne'),
     supabase.from('interventions')
-      .select('id, title, urgency, status, created_at, companies(company_name)')
-      .order('created_at', { ascending: false }).limit(5),
+      .select('id, titre, urgence, statut, cree_le, clients(nom_entreprise)')
+      .order('cree_le', { ascending: false }).limit(5),
   ])
   // Throw on the first error so React Query surfaces it
   for (const r of results) {
@@ -51,14 +51,14 @@ async function fetchAdminStats() {
 // ----- UI -----
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active', en_cours: 'En cours',
-  en_attente_validation: 'En attente', cloturee: 'Clôturée', annulee: 'Annulée',
+  planifiee: 'Planifiée', en_cours: 'En cours',
+  terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+  planifiee: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
   en_cours: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  en_attente_validation: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  cloturee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+  terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
+  signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 const URGENCY_DOT: Record<string, string> = {
@@ -130,7 +130,7 @@ export function AdminDashboardPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <p className="text-xs text-muted-foreground">{getGreeting()}</p>
-          <h1 className="text-xl font-bold text-foreground">{profile?.full_name}</h1>
+          <h1 className="text-xl font-bold text-foreground">{profile?.nom} {profile?.prenom}</h1>
         </div>
         {s.pendingValidation > 0 && (
           <Link
@@ -203,13 +203,13 @@ export function AdminDashboardPage() {
                 to={`/admin/interventions/${inv.id}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgency] ?? 'bg-muted-foreground'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgence] ?? 'bg-muted-foreground'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{inv.title}</p>
-                  <p className="text-xs text-muted-foreground">{inv.companies?.company_name ?? '—'}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{inv.titre}</p>
+                  <p className="text-xs text-muted-foreground">{inv.clients?.nom_entreprise ?? '—'}</p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.status] ?? ''}`}>
-                  {STATUS_LABEL[inv.status] ?? inv.status}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.statut] ?? ''}`}>
+                  {STATUS_LABEL[inv.statut] ?? inv.statut}
                 </span>
               </Link>
             ))}

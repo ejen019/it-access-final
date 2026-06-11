@@ -10,55 +10,60 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Monitor, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
-import { useCompanyEquipment } from '../hooks/useEquipment'
+import { useClientEquipement } from '../hooks/useEquipment'
 import { EquipmentForm } from '../components/EquipmentForm'
-import type { Equipment } from '@/types'
+import type { Equipement } from '@/types'
 
-// Récupère l'ID de l'entreprise liée au profil connecté
-async function fetchMyCompanyId(userId: string): Promise<string | null> {
+async function fetchMyClientId(userId: string): Promise<string | null> {
   const { data } = await supabase
-    .from('companies')
+    .from('clients')
     .select('id')
-    .eq('user_id', userId)
+    .eq('utilisateur_id', userId)
     .single()
   return data?.id ?? null
 }
 
-function EquipmentCard({ equipment }: { equipment: Equipment }) {
+const ETAT_LABEL: Record<string, string> = {
+  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne',
+}
+const ETAT_CLASS: Record<string, string> = {
+  operationnel: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
+  maintenance: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+  en_panne: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+}
+
+function EquipmentCard({ equipment }: { equipment: Equipement }) {
+  const photos = (equipment as any).photos as string[] | undefined
   return (
     <Link
       to={`/entreprise/parc/${equipment.id}`}
       className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-primary/40 transition-all group"
     >
-      {/* Photo ou icône par défaut */}
       <div className="w-full h-32 bg-muted rounded-lg mb-3 overflow-hidden flex items-center justify-center">
-        {equipment.photos[0] ? (
-          <img src={equipment.photos[0]} alt={equipment.name} className="w-full h-full object-cover" />
+        {photos?.[0] ? (
+          <img src={photos[0]} alt={equipment.nom} className="w-full h-full object-cover" />
         ) : (
           <Monitor size={32} className="text-muted-foreground/40" />
         )}
       </div>
 
-      {/* Statut */}
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-          equipment.status === 'operationnel' ? 'status-operationnel' : 'status-en-panne'
-        }`}>
-          {equipment.status === 'operationnel' ? 'Opérationnel' : 'En panne'}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ETAT_CLASS[equipment.etat] ?? ''}`}>
+          {ETAT_LABEL[equipment.etat] ?? equipment.etat}
         </span>
-        {equipment.category && (
-          <span className="text-xs text-muted-foreground">{equipment.category}</span>
+        {equipment.categorie && (
+          <span className="text-xs text-muted-foreground">{equipment.categorie}</span>
         )}
       </div>
 
       <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-        {equipment.name}
+        {equipment.nom}
       </p>
-      {equipment.model && (
-        <p className="text-xs text-muted-foreground mt-0.5">{equipment.model}</p>
+      {equipment.modele && (
+        <p className="text-xs text-muted-foreground mt-0.5">{equipment.modele}</p>
       )}
-      {equipment.location && (
-        <p className="text-xs text-muted-foreground mt-1">📍 {equipment.location}</p>
+      {equipment.emplacement && (
+        <p className="text-xs text-muted-foreground mt-1">📍 {equipment.emplacement}</p>
       )}
     </Link>
   )
@@ -71,22 +76,22 @@ export function ParcPage() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'operationnel' | 'en_panne'>('all')
 
-  const { data: companyId } = useQuery({
-    queryKey: ['my-company-id', profile?.id],
-    queryFn: () => fetchMyCompanyId(profile!.id),
+  const { data: clientId } = useQuery({
+    queryKey: ['my-client-id', profile?.id],
+    queryFn: () => fetchMyClientId(profile!.id),
     enabled: !!profile,
   })
 
-  const { data: equipment = [], isLoading } = useCompanyEquipment(companyId ?? undefined)
+  const { data: equipment = [], isLoading } = useClientEquipement(clientId ?? undefined)
 
   const filtered = equipment.filter((e) => {
-    const matchSearch = e.name.toLowerCase().includes(search.toLowerCase())
-      || (e.model ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchStatus = filterStatus === 'all' || e.status === filterStatus
+    const matchSearch = e.nom.toLowerCase().includes(search.toLowerCase())
+      || (e.modele ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || e.etat === filterStatus
     return matchSearch && matchStatus
   })
 
-  const panneCount = equipment.filter((e) => e.status === 'en_panne').length
+  const panneCount = equipment.filter((e) => e.etat === 'en_panne').length
 
   if (isLoading) {
     return (
@@ -109,7 +114,7 @@ export function ParcPage() {
             {panneCount > 0 && ` · ${panneCount} en panne`}
           </p>
         </div>
-        {companyId && (
+        {clientId && (
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
@@ -156,7 +161,7 @@ export function ParcPage() {
           <p className="text-sm text-muted-foreground">
             {equipment.length === 0 ? 'Aucun équipement enregistré' : 'Aucun résultat'}
           </p>
-          {equipment.length === 0 && companyId && (
+          {equipment.length === 0 && clientId && (
             <button
               onClick={() => setShowForm(true)}
               className="text-sm text-primary hover:underline"
@@ -174,7 +179,7 @@ export function ParcPage() {
       )}
 
       {/* Modal ajout équipement */}
-      {showForm && companyId && (
+      {showForm && clientId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40">
           <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-5 pt-5 pb-3 border-b border-border">
@@ -182,10 +187,10 @@ export function ParcPage() {
             </div>
             <div className="p-5">
               <EquipmentForm
-                companyId={companyId}
+                clientId={clientId}
                 onSuccess={() => {
                   setShowForm(false)
-                  queryClient.invalidateQueries({ queryKey: ['equipment', companyId] })
+                  queryClient.invalidateQueries({ queryKey: ['equipements', clientId] })
                 }}
                 onCancel={() => setShowForm(false)}
               />

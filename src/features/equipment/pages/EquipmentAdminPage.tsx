@@ -1,56 +1,61 @@
 // =============================================================
 // EquipmentAdminPage — Vue équipements pour l'Administrateur
-//
-// Liste tous les équipements de toutes les entreprises.
-// Filtres par entreprise, statut, catégorie.
-// Actions : Créer, Voir passeport, Supprimer, Importer en masse (IA)
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Search, Monitor, Trash2, QrCode, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useAllEquipment, useDeleteEquipment } from '../hooks/useEquipment'
+import { useTousEquipements, useSupprimerEquipement } from '../hooks/useEquipment'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { BulkImportModal } from '../components/BulkImportModal'
 import { printQRCode } from '@/lib/utils/qrcode'
 
-async function fetchCompanies() {
-  const { data, error } = await supabase.from('companies').select('id, company_name')
+async function fetchClients() {
+  const { data, error } = await supabase.from('clients').select('id, nom_entreprise')
   if (error) throw error
   return data ?? []
 }
 
+const ETAT_LABEL: Record<string, string> = {
+  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne',
+}
+const ETAT_CLASS: Record<string, string> = {
+  operationnel: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
+  maintenance: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+  en_panne: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+}
+
 export function EquipmentAdminPage() {
   const [search, setSearch] = useState('')
-  const [filterCompany, setFilterCompany] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterClient, setFilterClient] = useState('')
+  const [filterEtat, setFilterEtat] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [createCompanyId, setCreateCompanyId] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; companyId: string; name: string } | null>(null)
+  const [createClientId, setCreateClientId] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; clientId: string; nom: string } | null>(null)
   const [showImport, setShowImport] = useState(false)
-  const [importCompanyId, setImportCompanyId] = useState('')
-  const [pendingImportCompany, setPendingImportCompany] = useState('')
+  const [importClientId, setImportClientId] = useState('')
+  const [pendingImportClient, setPendingImportClient] = useState('')
 
-  const { data: equipment = [], isLoading, error } = useAllEquipment()
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies-list'],
-    queryFn: fetchCompanies,
+  const { data: equipment = [], isLoading, error } = useTousEquipements()
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-list'],
+    queryFn: fetchClients,
   })
-  const deleteMutation = useDeleteEquipment()
+  const deleteMutation = useSupprimerEquipement()
 
-  const filtered = equipment.filter((e: any) => {
-    const matchSearch = e.name.toLowerCase().includes(search.toLowerCase())
-      || (e.serial_number ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchCompany = !filterCompany || e.company_id === filterCompany
-    const matchStatus = !filterStatus || e.status === filterStatus
-    return matchSearch && matchCompany && matchStatus
+  const filtered = (equipment as any[]).filter((e) => {
+    const matchSearch = e.nom.toLowerCase().includes(search.toLowerCase())
+      || (e.numero_serie ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchClient = !filterClient || e.client_id === filterClient
+    const matchEtat = !filterEtat || e.etat === filterEtat
+    return matchSearch && matchClient && matchEtat
   })
 
   const stats = {
     total: equipment.length,
-    operationnel: equipment.filter((e: any) => e.status === 'operationnel').length,
-    en_panne: equipment.filter((e: any) => e.status === 'en_panne').length,
+    operationnel: (equipment as any[]).filter((e) => e.etat === 'operationnel').length,
+    en_panne: (equipment as any[]).filter((e) => e.etat === 'en_panne').length,
   }
 
   return (
@@ -60,7 +65,7 @@ export function EquipmentAdminPage() {
           Erreur de chargement : {(error as Error).message}
         </div>
       )}
-      {/* En-tête */}
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Équipements</h1>
@@ -86,7 +91,6 @@ export function EquipmentAdminPage() {
         </div>
       </div>
 
-      {/* Filtres */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative w-full sm:flex-1 sm:min-w-[16rem]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -99,27 +103,27 @@ export function EquipmentAdminPage() {
           />
         </div>
         <select
-          value={filterCompany}
-          onChange={(e) => setFilterCompany(e.target.value)}
+          value={filterClient}
+          onChange={(e) => setFilterClient(e.target.value)}
           className="w-full sm:w-auto px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Toutes les entreprises</option>
-          {companies.map((c: any) => (
-            <option key={c.id} value={c.id}>{c.company_name}</option>
+          {(clients as any[]).map((c) => (
+            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
           ))}
         </select>
         <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
+          value={filterEtat}
+          onChange={(e) => setFilterEtat(e.target.value)}
           className="w-full sm:w-auto px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">Tous les statuts</option>
+          <option value="">Tous les états</option>
           <option value="operationnel">Opérationnel</option>
+          <option value="maintenance">Maintenance</option>
           <option value="en_panne">En panne</option>
         </select>
       </div>
 
-      {/* Tableau */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {isLoading ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Chargement…</p>
@@ -133,7 +137,7 @@ export function EquipmentAdminPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Équipement</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase hidden md:table-cell">Entreprise</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase hidden lg:table-cell">Catégorie</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">État</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
                 </tr>
               </thead>
@@ -150,30 +154,28 @@ export function EquipmentAdminPage() {
                           </div>
                         )}
                         <div>
-                          <p className="text-sm font-medium text-foreground">{e.name}</p>
-                          {e.serial_number && (
-                            <p className="text-xs text-muted-foreground">SN: {e.serial_number}</p>
+                          <p className="text-sm font-medium text-foreground">{e.nom}</p>
+                          {e.numero_serie && (
+                            <p className="text-xs text-muted-foreground">SN: {e.numero_serie}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-sm text-muted-foreground">{e.companies?.company_name}</p>
+                      <p className="text-sm text-muted-foreground">{e.clients?.nom_entreprise ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <p className="text-sm text-muted-foreground">{e.category ?? '—'}</p>
+                      <p className="text-sm text-muted-foreground">{e.categorie ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        e.status === 'operationnel' ? 'status-operationnel' : 'status-en-panne'
-                      }`}>
-                        {e.status === 'operationnel' ? 'Opérationnel' : 'En panne'}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ETAT_CLASS[e.etat] ?? ''}`}>
+                        {ETAT_LABEL[e.etat] ?? e.etat}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
                         <button
-                          onClick={() => printQRCode(e.id, e.name)}
+                          onClick={() => printQRCode(e.id, e.nom)}
                           title="Imprimer QR Code"
                           className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
                         >
@@ -187,7 +189,7 @@ export function EquipmentAdminPage() {
                           <Monitor size={16} />
                         </Link>
                         <button
-                          onClick={() => setDeleteConfirm({ id: e.id, companyId: e.company_id, name: e.name })}
+                          onClick={() => setDeleteConfirm({ id: e.id, clientId: e.client_id, nom: e.nom })}
                           title="Supprimer"
                           className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
                         >
@@ -203,31 +205,31 @@ export function EquipmentAdminPage() {
         )}
       </div>
 
-      {/* Modal import IA — sélection entreprise puis BulkImportModal */}
-      {showImport && !importCompanyId && (
+      {/* Modal import IA */}
+      {showImport && !importClientId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
             <h3 className="font-semibold text-foreground">Import IA — Entreprise cible</h3>
             <select
-              value={pendingImportCompany}
-              onChange={(e) => setPendingImportCompany(e.target.value)}
+              value={pendingImportClient}
+              onChange={(e) => setPendingImportClient(e.target.value)}
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Choisir une entreprise…</option>
-              {companies.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
+              {(clients as any[]).map((c) => (
+                <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
               ))}
             </select>
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowImport(false); setPendingImportCompany('') }}
+                onClick={() => { setShowImport(false); setPendingImportClient('') }}
                 className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent"
               >
                 Annuler
               </button>
               <button
-                disabled={!pendingImportCompany}
-                onClick={() => setImportCompanyId(pendingImportCompany)}
+                disabled={!pendingImportClient}
+                onClick={() => setImportClientId(pendingImportClient)}
                 className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm disabled:opacity-60"
               >
                 Continuer
@@ -236,10 +238,10 @@ export function EquipmentAdminPage() {
           </div>
         </div>
       )}
-      {showImport && importCompanyId && (
+      {showImport && importClientId && (
         <BulkImportModal
-          companyId={importCompanyId}
-          onClose={() => { setShowImport(false); setImportCompanyId(''); setPendingImportCompany('') }}
+          clientId={importClientId}
+          onClose={() => { setShowImport(false); setImportClientId(''); setPendingImportClient('') }}
         />
       )}
 
@@ -249,30 +251,29 @@ export function EquipmentAdminPage() {
           <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-5 pt-5 pb-3 border-b border-border space-y-3">
               <h2 className="font-semibold text-foreground">Nouvel équipement</h2>
-              {/* Sélection de l'entreprise cible */}
               <select
-                value={createCompanyId}
-                onChange={(e) => setCreateCompanyId(e.target.value)}
+                value={createClientId}
+                onChange={(e) => setCreateClientId(e.target.value)}
                 className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Choisir l'entreprise…</option>
-                {companies.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                {(clients as any[]).map((c) => (
+                  <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
                 ))}
               </select>
             </div>
-            {createCompanyId ? (
+            {createClientId ? (
               <div className="p-5">
                 <EquipmentForm
-                  companyId={createCompanyId}
-                  onSuccess={() => { setShowCreate(false); setCreateCompanyId('') }}
-                  onCancel={() => { setShowCreate(false); setCreateCompanyId('') }}
+                  clientId={createClientId}
+                  onSuccess={() => { setShowCreate(false); setCreateClientId('') }}
+                  onCancel={() => { setShowCreate(false); setCreateClientId('') }}
                 />
               </div>
             ) : (
               <div className="p-5">
                 <button
-                  onClick={() => { setShowCreate(false); setCreateCompanyId('') }}
+                  onClick={() => { setShowCreate(false); setCreateClientId('') }}
                   className="w-full px-4 py-2.5 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
                 >
                   Annuler
@@ -289,7 +290,7 @@ export function EquipmentAdminPage() {
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
             <h3 className="font-semibold text-foreground">Supprimer l'équipement ?</h3>
             <p className="text-sm text-muted-foreground">
-              <strong>{deleteConfirm.name}</strong> sera définitivement supprimé avec tous ses documents et son historique.
+              <strong>{deleteConfirm.nom}</strong> sera définitivement supprimé.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
@@ -298,7 +299,7 @@ export function EquipmentAdminPage() {
               </button>
               <button
                 onClick={() => {
-                  deleteMutation.mutate({ id: deleteConfirm.id, companyId: deleteConfirm.companyId })
+                  deleteMutation.mutate({ id: deleteConfirm.id, clientId: deleteConfirm.clientId })
                   setDeleteConfirm(null)
                 }}
                 className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium transition-colors"

@@ -1,9 +1,5 @@
 // =============================================================
-// SudoEquipmentPage — Vue globale des équipements (Sudo)
-//
-// Affiche tous les équipements de toutes les entreprises.
-// Filtres : entreprise, statut, catégorie, recherche.
-// Vue lecture + lien passeport.
+// SudoEquipmentPage — Vue globale des équipements (Super Admin)
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -13,20 +9,20 @@ import { supabase } from '@/lib/supabase/client'
 
 // ----- Fetch -----
 
-async function fetchAllEquipment() {
+async function fetchAllEquipements() {
   const { data, error } = await supabase
-    .from('equipment')
-    .select('id, name, model, serial_number, status, category, location, created_at, companies(id, company_name)')
-    .order('created_at', { ascending: false })
+    .from('equipements')
+    .select('id, nom, modele, numero_serie, etat, categorie, emplacement, cree_le, clients(id, nom_entreprise)')
+    .order('cree_le', { ascending: false })
   if (error) throw error
   return data ?? []
 }
 
-async function fetchCompanies() {
+async function fetchClients() {
   const { data } = await supabase
-    .from('companies')
-    .select('id, company_name')
-    .order('company_name')
+    .from('clients')
+    .select('id, nom_entreprise')
+    .order('nom_entreprise')
   return data ?? []
 }
 
@@ -34,37 +30,36 @@ async function fetchCompanies() {
 
 export function SudoEquipmentPage() {
   const [search, setSearch] = useState('')
-  const [filterCompany, setFilterCompany] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterClient, setFilterClient] = useState('')
+  const [filterEtat, setFilterEtat] = useState('')
 
-  const { data: equipment = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['sudo-equipment'],
-    queryFn: fetchAllEquipment,
+  const { data: equipements = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['sudo-equipements'],
+    queryFn: fetchAllEquipements,
   })
 
-  const { data: companies = [] } = useQuery({
-    queryKey: ['sudo-companies-list'],
-    queryFn: fetchCompanies,
+  const { data: clients = [] } = useQuery({
+    queryKey: ['sudo-clients-list'],
+    queryFn: fetchClients,
   })
 
-  const filtered = equipment.filter((e: any) => {
-    const matchSearch = e.name.toLowerCase().includes(search.toLowerCase())
-      || (e.serial_number ?? '').toLowerCase().includes(search.toLowerCase())
-      || (e.model ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchCompany = !filterCompany || e.companies?.id === filterCompany
-    const matchStatus = !filterStatus || e.status === filterStatus
-    return matchSearch && matchCompany && matchStatus
+  const filtered = equipements.filter((e: any) => {
+    const matchSearch = (e.nom ?? '').toLowerCase().includes(search.toLowerCase())
+      || (e.numero_serie ?? '').toLowerCase().includes(search.toLowerCase())
+      || (e.modele ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchClient = !filterClient || e.clients?.id === filterClient
+    const matchEtat = !filterEtat || e.etat === filterEtat
+    return matchSearch && matchClient && matchEtat
   })
 
   const stats = {
-    total: equipment.length,
-    operationnel: equipment.filter((e: any) => e.status === 'operationnel').length,
-    en_panne: equipment.filter((e: any) => e.status === 'en_panne').length,
+    total: equipements.length,
+    operationnel: equipements.filter((e: any) => e.etat === 'operationnel').length,
+    en_panne: equipements.filter((e: any) => e.etat === 'en_panne').length,
   }
 
   return (
     <div className="space-y-6 page-transition">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Équipements</h1>
@@ -80,7 +75,6 @@ export function SudoEquipmentPage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Total', value: stats.total },
@@ -95,7 +89,6 @@ export function SudoEquipmentPage() {
         ))}
       </div>
 
-      {/* Filtres */}
       <div className="flex flex-wrap gap-3">
         <div className="relative w-full sm:flex-1 sm:min-w-[16rem]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -107,27 +100,27 @@ export function SudoEquipmentPage() {
           />
         </div>
         <select
-          value={filterCompany}
-          onChange={(e) => setFilterCompany(e.target.value)}
+          value={filterClient}
+          onChange={(e) => setFilterClient(e.target.value)}
           className="w-full sm:w-auto px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Toutes les entreprises</option>
-          {companies.map((c: any) => (
-            <option key={c.id} value={c.id}>{c.company_name}</option>
+          {(clients as any[]).map((c) => (
+            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
           ))}
         </select>
         <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
+          value={filterEtat}
+          onChange={(e) => setFilterEtat(e.target.value)}
           className="w-full sm:w-auto px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">Tous les statuts</option>
+          <option value="">Tous les états</option>
           <option value="operationnel">Opérationnel</option>
+          <option value="maintenance">Maintenance</option>
           <option value="en_panne">En panne</option>
         </select>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-sm text-destructive flex items-center gap-2">
           <AlertTriangle size={16} />
@@ -135,7 +128,6 @@ export function SudoEquipmentPage() {
         </div>
       )}
 
-      {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {isLoading ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Chargement…</p>
@@ -151,7 +143,7 @@ export function SudoEquipmentPage() {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Équipement</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">Entreprise</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">État</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Catégorie</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide">Passeport</th>
                 </tr>
@@ -160,26 +152,28 @@ export function SudoEquipmentPage() {
                 {filtered.map((eq: any) => (
                   <tr key={eq.id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-foreground">{eq.name}</p>
-                      {eq.model && <p className="text-xs text-muted-foreground">{eq.model}</p>}
-                      {eq.serial_number && (
-                        <p className="text-xs text-muted-foreground/70">S/N: {eq.serial_number}</p>
+                      <p className="text-sm font-medium text-foreground">{eq.nom}</p>
+                      {eq.modele && <p className="text-xs text-muted-foreground">{eq.modele}</p>}
+                      {eq.numero_serie && (
+                        <p className="text-xs text-muted-foreground/70">S/N: {eq.numero_serie}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-xs text-muted-foreground">{eq.companies?.company_name ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground">{eq.clients?.nom_entreprise ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        eq.status === 'operationnel'
+                        eq.etat === 'operationnel'
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : eq.etat === 'maintenance'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                           : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
-                        {eq.status === 'operationnel' ? 'Opérationnel' : 'En panne'}
+                        {eq.etat === 'operationnel' ? 'Opérationnel' : eq.etat === 'maintenance' ? 'Maintenance' : 'En panne'}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <p className="text-xs text-muted-foreground">{eq.category ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground">{eq.categorie ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

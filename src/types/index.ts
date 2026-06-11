@@ -1,248 +1,259 @@
 // =============================================================
-// IT-Access V2 — Types globaux de l'application
-// Tous les types partagés entre les features sont définis ici.
-// Chaque feature peut avoir ses propres types locaux en plus.
+// IT-Access Final — Types globaux de l'application
 // =============================================================
 
 // ----- Rôles utilisateur -----
-// Hiérarchie : sudo > admin > entreprise | technicien
-export type UserRole = 'sudo' | 'admin' | 'entreprise' | 'technicien'
+export type UserRole = 'super_admin' | 'admin' | 'client' | 'technicien'
 
-// ----- Profil utilisateur (table: profiles) -----
+// ----- Profil utilisateur (table: utilisateurs) -----
 export interface UserProfile {
-  id: string               // UUID Supabase Auth
+  id: string
   email: string
-  full_name: string
-  phone?: string | null
-  avatar_url?: string | null
+  nom: string
+  prenom?: string | null
+  telephone?: string | null
+  photo_url?: string | null
   role: UserRole
-  is_active: boolean
-  is_validated: boolean
-  created_at: string
-  updated_at: string
+  compte_valide: boolean
+  est_actif: boolean
+  cree_le: string
+  modifie_le: string
 }
 
-// ----- Entreprise cliente (table: companies) -----
-export interface Company {
+// ----- Client / Entreprise (table: clients) -----
+export interface ClientProfile {
   id: string
-  user_id: string          // Référence vers profiles.id
-  company_name: string
-  address?: string
-  city?: string
-  phone?: string
-  sector?: string          // Secteur d'activité
-  logo_url?: string
-  validation_code: string  // Code unique pour signer les interventions
-  contract_id?: string     // Contrat actif
-  created_at: string
-  updated_at: string
+  utilisateur_id: string
+  nom_entreprise: string
+  adresse?: string | null
+  ville?: string | null
+  telephone?: string | null
+  secteur?: string | null
+  logo_url?: string | null
+  code_signature: string
+  cree_le: string
+  modifie_le: string
 }
 
-// ----- Technicien (table: technicians) -----
-export interface Technician {
+// ----- Technicien (table: techniciens) -----
+export interface TechnicienProfile {
   id: string
-  user_id: string          // Référence vers profiles.id
-  specialty?: string       // Spécialité technique
-  created_at: string
+  utilisateur_id: string
+  specialite?: string | null
+  cree_le: string
 }
 
-// ----- Affectation technicien ↔ entreprise (table: assignments) -----
-export interface Assignment {
+// ----- Affectation technicien ↔ client (table: affectations) -----
+export interface Affectation {
   id: string
-  technician_id: string    // Référence vers technicians.id
-  company_id: string       // Référence vers companies.id
-  assigned_at: string
-  assigned_by: string      // Admin qui a fait l'affectation
+  technicien_id: string
+  client_id: string
+  affecte_par: string
+  affecte_le: string
 }
 
-// ----- Contrat de maintenance (table: contracts) -----
-export type ContractPlan = 'starter' | 'medium' | 'premium' | 'pro' | 'enterprise'
+// ----- Abonnement / Plan (table: abonnements) -----
+export type TypePlan = 'starter' | 'medium' | 'premium'
 
-export interface Contract {
+export interface Abonnement {
   id: string
-  company_id: string
-  plan: ContractPlan
-  max_equipment: number    // Quota équipements selon le plan
-  max_technicians: number  // Quota techniciens selon le plan
-  price_fcfa: number
-  start_date: string       // ISO date
-  end_date: string         // start_date + 1 an
-  is_active: boolean
-  created_at: string
-  updated_at: string
+  plan: TypePlan
+  montant: number
+  max_equipements: number
+  max_techniciens: number
 }
 
-// Plans disponibles (configuration statique)
-export const CONTRACT_PLANS: Record<ContractPlan, { label: string; price: number; maxEquipment: number; maxTechnicians: number }> = {
-  starter: {
-    label: 'Starter',
-    price: 5000,
-    maxEquipment: 5,
-    maxTechnicians: 2,
-  },
-  medium: {
-    label: 'Medium',
-    price: 15000,
-    maxEquipment: 15,
-    maxTechnicians: 5,
-  },
-  premium: {
-    label: 'Premium',
-    price: 45000,
-    maxEquipment: 50,
-    maxTechnicians: 7,
-  },
-  pro: {
-    label: 'Pro (legacy)',
-    price: 15000,
-    maxEquipment: 15,
-    maxTechnicians: 5,
-  },
-  enterprise: {
-    label: 'Enterprise (legacy)',
-    price: 45000,
-    maxEquipment: 50,
-    maxTechnicians: 7,
-  },
-}
-
-// ----- Équipement (table: equipment) -----
-export type EquipmentStatus = 'operationnel' | 'en_panne'
-
-export interface Equipment {
+// ----- Contrat (table: contrats) -----
+export interface Contrat {
   id: string
-  company_id: string
-  name: string             // Nom de l'équipement
-  model?: string           // Modèle
-  serial_number?: string   // Numéro de série
-  category?: string        // Type (PC, imprimante, serveur…)
-  location?: string        // Localisation physique
-  purchase_date?: string   // Date d'achat
-  warranty_end?: string    // Fin de garantie
-  status: EquipmentStatus
-  qr_code: string          // Contenu du QR Code (URL vers passeport)
-  photos: string[]         // URLs Supabase Storage (max 3)
-  notes?: string
-  created_by: string       // profiles.id qui a créé
-  created_at: string
-  updated_at: string
+  client_id: string
+  abonnement_id?: string | null
+  date_debut: string
+  date_fin: string
+  nbr_equip_actuel: number
+  nbr_techniciens_actuel: number
+  est_actif: boolean
+  raison?: string | null
+  cree_le: string
+  modifie_le: string
 }
 
-// Document attaché à un équipement (table: equipment_documents)
-export interface EquipmentDocument {
+// ----- Équipement (table: equipements) -----
+export type EtatEquipement = 'operationnel' | 'maintenance' | 'en_panne'
+
+export interface Equipement {
   id: string
-  equipment_id: string
-  name: string
-  file_url: string         // URL Supabase Storage
-  file_type: string        // 'pdf' | 'docx' | 'txt'
-  file_size: number        // En octets
-  uploaded_by: string
-  uploaded_at: string
+  client_id: string
+  nom: string
+  modele?: string | null
+  numero_serie?: string | null
+  categorie?: string | null
+  emplacement?: string | null
+  date_achat?: string | null
+  fin_garantie?: string | null
+  etat: EtatEquipement
+  qr_code: string
+  photos: string[]
+  notes?: string | null
+  cree_par: string
+  cree_le: string
+  modifie_le: string
+}
+
+// Document attaché à un équipement (table: documents_equipement)
+export interface DocumentEquipement {
+  id: string
+  equipement_id: string
+  nom: string
+  url_fichier: string
+  type_fichier: 'docx' | 'pdf' | 'txt'
+  taille_fichier: number
+  uploade_par: string
+  uploade_le: string
+}
+
+// ----- Demande de maintenance (table: demandes_maintenance) -----
+export type EtatDemandeMaintenance = 'en_attente' | 'planifiee' | 'rejetee' | 'annulee'
+export type NiveauUrgence = 'faible' | 'moyenne' | 'critique'
+
+export interface DemandeMaintenance {
+  id: string
+  client_id: string
+  equipement_id: string
+  description: string
+  urgence: NiveauUrgence
+  etat: EtatDemandeMaintenance
+  cree_par: string
+  intervention_planifiee_id?: string | null
+  cree_le: string
+  modifie_le: string
+}
+
+// ----- Demande de modification d'équipement (table: demandes_modification) -----
+export type TypeAction = 'ajout' | 'modifier' | 'supprimer'
+export type StatutDemande = 'en_attente' | 'approuvee' | 'rejetee'
+
+export interface DemandeModification {
+  id: string
+  client_id: string
+  equipement_id?: string | null
+  demande_par: string
+  action: TypeAction
+  donnees: Record<string, unknown>
+  statut: StatutDemande
+  note_revision?: string | null
+  revise_par?: string | null
+  revise_le?: string | null
+  cree_le: string
+  modifie_le: string
 }
 
 // ----- Intervention (table: interventions) -----
-export type InterventionStatus =
-  | 'active'               // Créée, technicien peut travailler
-  | 'en_cours'             // Technicien a démarré
-  | 'en_attente_validation'// Technicien a clôturé, attend signature client
-  | 'cloturee'             // Client a signé — terminée
-  | 'annulee'              // Annulée (disparaît des vues)
+export type StatutIntervention =
+  | 'planifiee'
+  | 'en_cours'
+  | 'terminee'
+  | 'signee'
+  | 'annulee'
 
-export type UrgencyLevel = 'faible' | 'moyenne' | 'critique'
+export type TypePlanification = 'reparation' | 'periodique'
 
 export interface Intervention {
   id: string
-  company_id: string
-  equipment_ids: string[]  // Un ou plusieurs équipements concernés
-  title: string
+  client_id: string
+  titre: string
   description: string
-  urgency: UrgencyLevel
-  status: InterventionStatus
-  created_by: string       // profiles.id (admin ou entreprise)
-  technician_ids: string[] // Techniciens affectés
-  work_report?: string     // Rapport du technicien (texte libre)
-  parts_replaced?: string  // Pièces remplacées (texte libre)
-  photos: string[]         // Photos de l'intervention (max 3)
-  signature_url?: string   // URL de la signature client (Storage)
-  pdf_url?: string         // URL du compte rendu PDF final (Storage)
-  signed_at?: string       // Horodatage de la signature
-  started_at?: string      // Quand le technicien a démarré
-  closed_at?: string       // Quand le technicien a clôturé
-  created_at: string
-  updated_at: string
+  type_planification: TypePlanification
+  statut: StatutIntervention
+  urgence: NiveauUrgence
+  photos: string[]
+  planifie_le?: string | null
+  signee_le?: string | null
+  cree_par: string
+  cloturee_le?: string | null
+  cree_le: string
+  modifie_le: string
 }
 
-// Historique des réouvertures (table: intervention_reopens)
-export interface InterventionReopen {
+// ----- Rapport d'intervention (table: rapports_intervention) -----
+export interface RapportIntervention {
   id: string
   intervention_id: string
-  reason: string           // Raison de la réouverture
-  reopened_by: string      // profiles.id de l'entreprise
-  reopened_at: string
+  description: string
+  pieces_remplacees?: string | null
+  rapport_travaux?: string | null
+  url_signature?: string | null
+  url_pdf?: string | null
+  date_debut?: string | null
+  date_fin?: string | null
+  cree_le: string
 }
 
 // ----- Message (table: messages) -----
 export interface Message {
   id: string
-  conversation_id: string  // ID de la conversation entre 2 utilisateurs
-  sender_id: string        // profiles.id
-  content: string
-  reply_to_id?: string     // Message auquel on répond
-  attachments?: MessageAttachment[]
-  is_edited: boolean
-  edited_at?: string
-  created_at: string
+  conversation_id: string
+  expediteur_id: string
+  contenu: string
+  reponse_a_id?: string | null
+  lu: boolean
+  est_modifie: boolean
+  edite_le?: string | null
+  cree_le: string
 }
 
-export interface MessageAttachment {
+export interface PieceJointeMessage {
   id: string
   message_id: string
-  name: string
-  file_url: string
-  file_type: string
-  file_size: number
+  nom: string
+  url_fichier: string
+  type_fichier: string
+  taille_fichier: number
 }
 
 // ----- Notification (table: notifications) -----
-export type NotificationType =
-  | 'new_account_pending'     // Nouveau compte à valider (Admin)
-  | 'account_validated'       // Compte validé (Entreprise/Technicien)
-  | 'new_intervention'        // Nouvelle intervention créée
-  | 'intervention_assigned'   // Technicien affecté à une intervention
-  | 'intervention_updated'    // Statut d'une intervention changé
-  | 'new_message'             // Nouveau message reçu
+export type TypeNotification =
+  | 'nouveau_compte_en_attente'
+  | 'compte_valide'
+  | 'nouvelle_intervention'
+  | 'intervention_assignee'
+  | 'intervention_mise_a_jour'
+  | 'demande_maintenance_creee'
+  | 'demande_maintenance_planifiee'
+  | 'demande_modification_creee'
+  | 'demande_modification_approuvee'
+  | 'demande_modification_rejetee'
+  | 'nouveau_message'
 
 export interface Notification {
   id: string
-  user_id: string          // Destinataire
-  type: NotificationType
-  title: string
-  body: string
-  link?: string            // Route vers laquelle rediriger
-  is_read: boolean
-  created_at: string
+  utilisateur_id: string
+  type: TypeNotification
+  titre: string
+  corps: string
+  lien?: string | null
+  est_lu: boolean
+  cree_le: string
 }
 
-// ----- Journal d'audit (table: audit_logs) -----
-export interface AuditLog {
+// ----- Journal d'audit (table: journaux_audit) -----
+export interface JournalAudit {
   id: string
-  actor_id?: string | null
-  actor_role?: UserRole | null
+  acteur_id?: string | null
+  role_acteur?: UserRole | null
   action: string
-  entity_type: string
-  entity_id?: string | null
+  type_entite: string
+  entite_id?: string | null
   details: Record<string, unknown>
-  created_at: string
+  cree_le: string
 }
 
-// ----- Helpers génériques -----
-// Résultat paginé pour les listes
-export interface PaginatedResult<T> {
+// ----- Helpers -----
+export interface ResultatPagine<T> {
   data: T[]
-  count: number
+  total: number
   page: number
-  pageSize: number
+  parPage: number
 }
 
-// État de connexion réseau (pour le banner offline)
-export type NetworkStatus = 'online' | 'offline'
+export type StatutReseau = 'en_ligne' | 'hors_ligne'

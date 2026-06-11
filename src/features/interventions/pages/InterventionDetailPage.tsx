@@ -8,7 +8,7 @@
 // =============================================================
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+
 import {
   ArrowLeft, AlertTriangle, Play, PenLine, CheckCircle2,
   Camera, Loader2, Download, Ban, Wrench, Monitor
@@ -18,11 +18,11 @@ import jsPDF from 'jspdf'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import {
-  useInterventionDetail,
-  useUpdateInterventionStatus,
-  useSignIntervention,
-  uploadInterventionPhoto,
-  uploadAndSavePdf,
+  useDetailIntervention,
+  useChangerStatutIntervention,
+  useSignerIntervention,
+  uploadPhotoIntervention,
+  uploadEtSauvegarderPdf,
 } from '../hooks/useInterventions'
 
 // Compat interop: selon le build, react-signature-canvas peut être exposé sur .default
@@ -31,18 +31,18 @@ const SignatureCanvasComponent = (SignatureCanvas as any)?.default ?? SignatureC
 // ----- Helpers visuels -----
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active',
+  planifiee: 'Planifiée',
   en_cours: 'En cours',
-  en_attente_validation: 'En attente de validation',
-  cloturee: 'Clôturée',
+  terminee: 'En attente de signature',
+  signee: 'Clôturée',
   annulee: 'Annulée',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  en_attente_validation: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  cloturee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 
@@ -98,13 +98,13 @@ function generateInterventionPdf(
   doc.text('Informations générales', M, y)
   y += 7
 
+  const rapport = intervention.rapports_intervention?.[0]
   const rows: [string, string][] = [
     ['Entreprise :', companyName],
-    ['Titre :', intervention.title],
-    ['Urgence :', URGENCY_LABEL[intervention.urgency] ?? intervention.urgency],
-    ['Créée le :', formatDate(intervention.created_at)],
-    ...(intervention.started_at ? [['Démarrée le :', formatDate(intervention.started_at)] as [string, string]] : []),
-    ['Signée le :', formatDate(intervention.signed_at ?? new Date().toISOString())],
+    ['Titre :', intervention.titre],
+    ['Urgence :', URGENCY_LABEL[intervention.urgence] ?? intervention.urgence],
+    ['Créée le :', formatDate(intervention.cree_le)],
+    ['Signée le :', formatDate(intervention.signee_le ?? new Date().toISOString())],
   ]
 
   doc.setFontSize(9)
@@ -150,7 +150,7 @@ function generateInterventionPdf(
   y += descLines.length * 5 + 3
 
   // Rapport
-  if (intervention.work_report) {
+  if (rapport?.compte_rendu) {
     doc.line(M, y, 190, y)
     y += 7
     doc.setFontSize(11)
@@ -159,13 +159,13 @@ function generateInterventionPdf(
     y += 6
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    const reportLines = doc.splitTextToSize(intervention.work_report, 165)
+    const reportLines = doc.splitTextToSize(rapport.compte_rendu, 165)
     doc.text(reportLines, M, y)
     y += reportLines.length * 5 + 3
   }
 
   // Pièces
-  if (intervention.parts_replaced) {
+  if (rapport?.pieces_remplacees) {
     doc.line(M, y, 190, y)
     y += 7
     doc.setFontSize(11)
@@ -174,7 +174,7 @@ function generateInterventionPdf(
     y += 6
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    const partsLines = doc.splitTextToSize(intervention.parts_replaced, 165)
+    const partsLines = doc.splitTextToSize(rapport.pieces_remplacees, 165)
     doc.text(partsLines, M, y)
     y += partsLines.length * 5 + 3
   }
@@ -211,11 +211,10 @@ export function InterventionDetailPage() {
   const { profile } = useAuthStore()
   const role = profile?.role
 
-  const { data: intervention, isLoading } = useInterventionDetail(id)
-  const updateStatus = useUpdateInterventionStatus()
-  const signMutation = useSignIntervention()
+  const { data: intervention, isLoading } = useDetailIntervention(id)
+  const updateStatus = useChangerStatutIntervention()
+  const signMutation = useSignerIntervention()
 
-  // Technicien : état du rapport
   const [workReport, setWorkReport] = useState('')
   const [partsReplaced, setPartsReplaced] = useState('')
   const [techPhotos, setTechPhotos] = useState<string[]>([])
@@ -223,7 +222,6 @@ export function InterventionDetailPage() {
   const [saving, setSaving] = useState(false)
   const [closing, setClosing] = useState(false)
 
-  // Entreprise : état signature
   const [validationCode, setValidationCode] = useState('')
   const [codeError, setCodeError] = useState(false)
   const [sigError, setSigError] = useState(false)
@@ -231,31 +229,18 @@ export function InterventionDetailPage() {
   const [pdfGenerating, setPdfGenerating] = useState(false)
   const sigCanvasRef = useRef<any>(null)
 
-  // Admin : état annulation
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
-  // Noms des équipements
-  const { data: equipmentList = [] } = useQuery({
-    queryKey: ['equipment-names', intervention?.equipment_ids],
-    queryFn: async () => {
-      if (!intervention?.equipment_ids?.length) return []
-      const { data } = await supabase
-        .from('equipment')
-        .select('id, name')
-        .in('id', intervention.equipment_ids)
-      return (data ?? []) as { id: string; name: string }[]
-    },
-    enabled: !!(intervention?.equipment_ids?.length),
-  })
+  const rapport = (intervention as any)?.rapports_intervention?.[0]
 
-  // Pré-remplir le rapport quand les données arrivent
+  // Pré-remplir le rapport
   useEffect(() => {
     if (intervention) {
-      setWorkReport(intervention.work_report ?? '')
-      setPartsReplaced(intervention.parts_replaced ?? '')
-      setTechPhotos(intervention.photos ?? [])
+      setWorkReport(rapport?.compte_rendu ?? '')
+      setPartsReplaced(rapport?.pieces_remplacees ?? '')
+      setTechPhotos((intervention as any).photos ?? [])
     }
-  }, [intervention?.id])
+  }, [(intervention as any)?.id])
 
   if (isLoading) {
     return (
@@ -273,27 +258,25 @@ export function InterventionDetailPage() {
     )
   }
 
-  const status = intervention.status
-  const companyName = (intervention as any).companies?.company_name ?? '—'
-  const validationCodeStored = (intervention as any).companies?.validation_code ?? ''
-  const equipmentNames = equipmentList.map((e) => e.name)
+  const statut = (intervention as any).statut
+  const companyName = (intervention as any).clients?.nom_entreprise ?? '—'
+  const validationCodeStored = (intervention as any).clients?.code_signature ?? ''
+  const equipmentNames = ((intervention as any).interventions_equipements ?? [])
+    .map((ie: any) => ie.equipements?.nom).filter(Boolean)
 
   // ----- Actions Technicien -----
 
   async function handleStart() {
-    await updateStatus.mutateAsync({
-      id: id!,
-      status: 'en_cours',
-      extra: { started_at: new Date().toISOString() },
-    })
+    await updateStatus.mutateAsync({ id: id!, statut: 'en_cours' })
   }
 
   async function handleSaveReport() {
     setSaving(true)
     await supabase
-      .from('interventions')
-      .update({ work_report: workReport, parts_replaced: partsReplaced, photos: techPhotos })
-      .eq('id', id!)
+      .from('rapports_intervention')
+      .upsert({ intervention_id: id!, compte_rendu: workReport, pieces_remplacees: partsReplaced },
+        { onConflict: 'intervention_id' })
+    await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
     setSaving(false)
   }
 
@@ -301,18 +284,12 @@ export function InterventionDetailPage() {
     if (!workReport.trim()) return
     setClosing(true)
     try {
-      // Passer rapport + photos dans le même update que le status
-      // → 1 seule requête + déclenche la notification entreprise
-      await updateStatus.mutateAsync({
-        id: id!,
-        status: 'en_attente_validation',
-        extra: {
-          work_report: workReport,
-          parts_replaced: partsReplaced,
-          photos: techPhotos,
-          closed_at: new Date().toISOString(),
-        },
-      })
+      await supabase.from('rapports_intervention').upsert(
+        { intervention_id: id!, compte_rendu: workReport, pieces_remplacees: partsReplaced, date_fin: new Date().toISOString() },
+        { onConflict: 'intervention_id' }
+      )
+      await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
+      await updateStatus.mutateAsync({ id: id!, statut: 'terminee' })
     } finally {
       setClosing(false)
     }
@@ -323,9 +300,7 @@ export function InterventionDetailPage() {
     if (techPhotos.length + files.length > 3) return
     setPhotoUploading(true)
     try {
-      const urls = await Promise.all(
-        files.map((f) => uploadInterventionPhoto(f, id!))
-      )
+      const urls = await Promise.all(files.map((f) => uploadPhotoIntervention(f, id!)))
       setTechPhotos((prev) => [...prev, ...urls])
     } finally {
       setPhotoUploading(false)
@@ -353,22 +328,19 @@ export function InterventionDetailPage() {
     setSigning(true)
     try {
       const dataUrl = sig.toDataURL('image/png')
-      await signMutation.mutateAsync({
-        id: id!,
-        signatureDataUrl: dataUrl,
-        equipmentIds: intervention?.equipment_ids ?? [],
-      })
+      const equipementIds = ((intervention as any).interventions_equipements ?? []).map((ie: any) => ie.equipement_id)
+      await signMutation.mutateAsync({ id: id!, signatureDataUrl: dataUrl, equipementIds })
 
       // Génération et upload du PDF
       setPdfGenerating(true)
       try {
         const pdfBlob = generateInterventionPdf(
-          { ...intervention!, signed_at: new Date().toISOString() },
+          { ...intervention!, rapport, signee_le: new Date().toISOString() },
           dataUrl,
           equipmentNames,
           companyName,
         )
-        await uploadAndSavePdf(id!, pdfBlob)
+        await uploadEtSauvegarderPdf(id!, pdfBlob)
 
         // Téléchargement immédiat
         const link = document.createElement('a')
@@ -386,16 +358,17 @@ export function InterventionDetailPage() {
   // ----- Action Admin : annuler -----
 
   async function handleCancel() {
-    await updateStatus.mutateAsync({ id: id!, status: 'annulee' })
+    await updateStatus.mutateAsync({ id: id!, statut: 'annulee' })
     setShowCancelConfirm(false)
   }
 
   // ----- Télécharger PDF existant -----
 
   function handleDownloadPdf() {
-    if (!intervention?.pdf_url) return
+    const pdfUrl = rapport?.url_pdf
+    if (!pdfUrl) return
     const link = document.createElement('a')
-    link.href = intervention.pdf_url
+    link.href = pdfUrl
     link.target = '_blank'
     link.download = `CR-Intervention-${id!.slice(0, 8)}.pdf`
     link.click()
@@ -418,16 +391,16 @@ export function InterventionDetailPage() {
           <ArrowLeft size={18} className="text-muted-foreground" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground leading-tight">{intervention.title}</h1>
+          <h1 className="text-xl font-bold text-foreground leading-tight">{(intervention as any).titre}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{companyName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[status]}`}>
-              {STATUS_LABEL[status]}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[statut]}`}>
+              {STATUS_LABEL[statut]}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[intervention.urgency]}`}>
-              {URGENCY_LABEL[intervention.urgency]}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[(intervention as any).urgence]}`}>
+              {URGENCY_LABEL[(intervention as any).urgence]}
             </span>
-            {intervention.urgency === 'critique' && (
+            {(intervention as any).urgence === 'critique' && (
               <AlertTriangle size={14} className="text-red-500" />
             )}
           </div>
@@ -435,14 +408,14 @@ export function InterventionDetailPage() {
       </div>
 
       {/* Équipements concernés */}
-      {equipmentList.length > 0 && (
+      {equipmentNames.length > 0 && (
         <section className="bg-card border border-border rounded-xl p-4 space-y-2">
           <h2 className="text-sm font-semibold text-foreground">Équipements concernés</h2>
           <div className="space-y-1.5">
-            {equipmentList.map((eq) => (
-              <div key={eq.id} className="flex items-center gap-2 text-sm text-foreground">
+            {equipmentNames.map((nom: string, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-sm text-foreground">
                 <Monitor size={14} className="text-muted-foreground flex-shrink-0" />
-                <span>{eq.name}</span>
+                <span>{nom}</span>
               </div>
             ))}
           </div>
@@ -454,10 +427,8 @@ export function InterventionDetailPage() {
         <h2 className="text-sm font-semibold text-foreground">Description</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">{intervention.description}</p>
         <div className="pt-1 grid grid-cols-2 gap-x-4 gap-y-1">
-          <InfoRow label="Créée"    value={formatDate(intervention.created_at)} />
-          {intervention.started_at && <InfoRow label="Démarrée" value={formatDate(intervention.started_at)} />}
-          {intervention.closed_at  && <InfoRow label="Clôturée" value={formatDate(intervention.closed_at)} />}
-          {intervention.signed_at  && <InfoRow label="Signée"   value={formatDate(intervention.signed_at)} />}
+          <InfoRow label="Créée"  value={formatDate((intervention as any).cree_le)} />
+          {(intervention as any).signee_le && <InfoRow label="Signée" value={formatDate((intervention as any).signee_le)} />}
         </div>
       </section>
 
@@ -465,7 +436,7 @@ export function InterventionDetailPage() {
       {role === 'technicien' && (
         <>
           {/* Démarrer */}
-          {status === 'active' && (
+          {statut === 'planifiee' && (
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <h2 className="text-sm font-semibold text-foreground">{"Démarrer l'intervention"}</h2>
               <p className="text-sm text-muted-foreground">
@@ -483,7 +454,7 @@ export function InterventionDetailPage() {
           )}
 
           {/* Rapport de travail */}
-          {(status === 'en_cours' || status === 'en_attente_validation' || status === 'cloturee') && (
+          {(statut === 'en_cours' || statut === 'terminee' || statut === 'signee') && (
             <section className="bg-card border border-border rounded-xl p-4 space-y-4">
               <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Wrench size={15} />
@@ -496,7 +467,7 @@ export function InterventionDetailPage() {
                   value={workReport}
                   onChange={(e) => setWorkReport(e.target.value)}
                   rows={4}
-                  disabled={status !== 'en_cours'}
+                  disabled={statut !== 'en_cours'}
                   placeholder="Décrivez les travaux effectués…"
                   className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-60"
                 />
@@ -508,7 +479,7 @@ export function InterventionDetailPage() {
                   value={partsReplaced}
                   onChange={(e) => setPartsReplaced(e.target.value)}
                   rows={2}
-                  disabled={status !== 'en_cours'}
+                  disabled={statut !== 'en_cours'}
                   placeholder="Lister les pièces remplacées (optionnel)…"
                   className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-60"
                 />
@@ -521,7 +492,7 @@ export function InterventionDetailPage() {
                   {techPhotos.map((url, i) => (
                     <div key={i} className="relative w-20 h-20">
                       <img src={url} alt="" className="w-full h-full object-cover rounded-lg border border-border" />
-                      {status === 'en_cours' && (
+                      {statut === 'en_cours' && (
                         <button
                           type="button"
                           onClick={() => setTechPhotos((p) => p.filter((_, j) => j !== i))}
@@ -532,7 +503,7 @@ export function InterventionDetailPage() {
                       )}
                     </div>
                   ))}
-                  {status === 'en_cours' && techPhotos.length < 3 && (
+                  {statut === 'en_cours' && techPhotos.length < 3 && (
                     <label className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
                       {photoUploading
                         ? <Loader2 size={16} className="animate-spin text-muted-foreground" />
@@ -545,7 +516,7 @@ export function InterventionDetailPage() {
               </div>
 
               {/* Boutons actions (seulement si en_cours) */}
-              {status === 'en_cours' && (
+              {statut === 'en_cours' && (
                 <div className="flex gap-3 pt-1">
                   <button
                     onClick={handleSaveReport}
@@ -565,7 +536,7 @@ export function InterventionDetailPage() {
                 </div>
               )}
 
-              {status === 'en_attente_validation' && (
+              {statut === 'terminee' && (
                 <p className="text-xs text-purple-600 dark:text-purple-400 text-center pt-1">
                   Intervention transmise — en attente de signature client
                 </p>
@@ -576,7 +547,7 @@ export function InterventionDetailPage() {
       )}
 
       {/* ——— Section Entreprise : Signature ——— */}
-      {role === 'entreprise' && status === 'en_attente_validation' && (
+      {role === 'client' && statut === 'terminee' && (
         <section className="bg-card border border-purple-200 dark:border-purple-800 rounded-xl p-4 space-y-4">
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <PenLine size={15} className="text-purple-500" />
@@ -644,37 +615,37 @@ export function InterventionDetailPage() {
       )}
 
       {/* Rapport en lecture seule (pour entreprise) */}
-      {role === 'entreprise' && (status === 'cloturee' || status === 'en_attente_validation') && intervention.work_report && (
+      {role === 'client' && (statut === 'signee' || statut === 'terminee') && rapport?.compte_rendu && (
         <section className="bg-card border border-border rounded-xl p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Rapport du technicien</h2>
-          <p className="text-sm text-foreground leading-relaxed">{intervention.work_report}</p>
-          {intervention.parts_replaced && (
+          <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
+          {rapport.pieces_remplacees && (
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Pièces remplacées</p>
-              <p className="text-sm text-foreground">{intervention.parts_replaced}</p>
+              <p className="text-sm text-foreground">{rapport.pieces_remplacees}</p>
             </div>
           )}
         </section>
       )}
 
       {/* PDF disponible après clôture */}
-      {status === 'cloturee' && (
+      {statut === 'signee' && (
         <section className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={18} className="text-green-600" />
             <h2 className="text-sm font-semibold text-green-700 dark:text-green-400">Intervention clôturée</h2>
           </div>
-          {intervention.signature_url && (
+          {rapport?.url_signature && (
             <div>
               <p className="text-xs text-muted-foreground mb-2">Signature client</p>
               <img
-                src={intervention.signature_url}
+                src={rapport.url_signature}
                 alt="Signature"
                 className="h-16 border border-border rounded-lg bg-white p-1"
               />
             </div>
           )}
-          {intervention.pdf_url && (
+          {rapport?.url_pdf && (
             <button
               onClick={handleDownloadPdf}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
@@ -692,17 +663,17 @@ export function InterventionDetailPage() {
           <h2 className="text-sm font-semibold text-foreground">Actions admin</h2>
 
           {/* Rapport (lecture seule) */}
-          {intervention.work_report && (
+          {rapport?.compte_rendu && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase">Rapport technicien</p>
-              <p className="text-sm text-foreground">{intervention.work_report}</p>
-              {intervention.parts_replaced && (
-                <p className="text-xs text-muted-foreground mt-1">Pièces : {intervention.parts_replaced}</p>
+              <p className="text-sm text-foreground">{rapport.compte_rendu}</p>
+              {rapport.pieces_remplacees && (
+                <p className="text-xs text-muted-foreground mt-1">Pièces : {rapport.pieces_remplacees}</p>
               )}
             </div>
           )}
 
-          {status !== 'cloturee' && status !== 'annulee' && (
+          {statut !== 'signee' && statut !== 'annulee' && (
             <button
               onClick={() => setShowCancelConfirm(true)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-destructive text-destructive rounded-lg text-sm hover:bg-destructive/10 transition-colors"
@@ -712,7 +683,7 @@ export function InterventionDetailPage() {
             </button>
           )}
 
-          {intervention.pdf_url && (
+          {rapport?.url_pdf && (
             <button
               onClick={handleDownloadPdf}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent transition-colors"

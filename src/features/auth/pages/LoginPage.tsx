@@ -10,10 +10,10 @@ import { useAuthStore } from '@/stores/auth.store'
 import type { UserProfile } from '@/types'
 
 const ROLE_HOME: Record<string, string> = {
-  sudo: '/sudo/dashboard',
+  super_admin: '/sudo/dashboard',
   admin: '/admin/dashboard',
   technicien: '/technicien/dashboard',
-  entreprise: '/entreprise/dashboard',
+  client: '/entreprise/dashboard',
 }
 
 export function LoginPage() {
@@ -48,7 +48,7 @@ export function LoginPage() {
 
     // Récupère le profil pour connaître le rôle
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('utilisateurs')
       .select('*')
       .eq('id', data.user.id)
       .single()
@@ -60,16 +60,14 @@ export function LoginPage() {
       return
     }
 
-    // Compte désactivé par un admin
-    if (!profile.is_active) {
+    if (!profile.est_actif) {
       await supabase.auth.signOut()
       setError('Votre compte a été désactivé. Contactez un administrateur.')
       setIsLoading(false)
       return
     }
 
-    // Compte en attente de validation (sauf sudo et admin qui sont validés d'office)
-    if (!profile.is_validated && profile.role !== 'sudo' && profile.role !== 'admin') {
+    if (!profile.compte_valide && profile.role !== 'super_admin' && profile.role !== 'admin') {
       await supabase.auth.signOut()
       setError('Votre compte est en attente de validation par un administrateur.')
       setIsLoading(false)

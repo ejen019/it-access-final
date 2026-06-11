@@ -1,8 +1,5 @@
 // =============================================================
 // InterventionsEntreprisePage — Interventions de l'entreprise
-//
-// Liste les interventions de la société connectée.
-// L'entreprise peut voir le détail et signer si en_attente_validation.
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -10,30 +7,30 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, AlertTriangle, PenLine } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
-import { useCompanyInterventions } from '../hooks/useInterventions'
+import { useInterventionsClient } from '../hooks/useInterventions'
 
-async function fetchMyCompanyId(userId: string): Promise<string | null> {
+async function fetchMyClientId(userId: string): Promise<string | null> {
   const { data } = await supabase
-    .from('companies')
+    .from('clients')
     .select('id')
-    .eq('user_id', userId)
+    .eq('utilisateur_id', userId)
     .single()
   return data?.id ?? null
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active',
+  planifiee: 'Planifiée',
   en_cours: 'En cours',
-  en_attente_validation: 'À signer',
-  cloturee: 'Clôturée',
+  terminee: 'À signer',
+  signee: 'Signée',
   annulee: 'Annulée',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  en_attente_validation: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  cloturee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 
@@ -43,7 +40,7 @@ const URGENCY_BORDER: Record<string, string> = {
   critique: 'border-l-red-500',
 }
 
-type StatusFilter = 'all' | 'active' | 'en_cours' | 'en_attente_validation' | 'cloturee'
+type StatusFilter = 'all' | 'planifiee' | 'en_cours' | 'terminee' | 'signee'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -53,19 +50,19 @@ export function InterventionsEntreprisePage() {
   const { profile } = useAuthStore()
   const [filter, setFilter] = useState<StatusFilter>('all')
 
-  const { data: companyId } = useQuery({
-    queryKey: ['my-company-id', profile?.id],
-    queryFn: () => fetchMyCompanyId(profile!.id),
+  const { data: clientId } = useQuery({
+    queryKey: ['my-client-id', profile?.id],
+    queryFn: () => fetchMyClientId(profile!.id),
     enabled: !!profile,
   })
 
-  const { data: interventions = [], isLoading } = useCompanyInterventions(companyId ?? undefined)
+  const { data: interventions = [], isLoading } = useInterventionsClient(clientId ?? undefined)
 
-  const toSign = interventions.filter((i: any) => i.status === 'en_attente_validation').length
+  const toSign = interventions.filter((i: any) => i.statut === 'terminee').length
 
   const filtered = filter === 'all'
     ? interventions
-    : interventions.filter((i: any) => i.status === filter)
+    : interventions.filter((i: any) => i.statut === filter)
 
   if (isLoading) {
     return (
@@ -101,10 +98,10 @@ export function InterventionsEntreprisePage() {
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([
           ['all', 'Toutes'],
-          ['active', 'Actives'],
+          ['planifiee', 'Planifiées'],
           ['en_cours', 'En cours'],
-          ['en_attente_validation', 'À signer'],
-          ['cloturee', 'Clôturées'],
+          ['terminee', 'À signer'],
+          ['signee', 'Signées'],
         ] as [StatusFilter, string][]).map(([val, label]) => (
           <button
             key={val}
@@ -132,33 +129,33 @@ export function InterventionsEntreprisePage() {
             <Link
               key={i.id}
               to={`/entreprise/interventions/${i.id}`}
-              className={`block bg-card border border-border border-l-4 ${URGENCY_BORDER[i.urgency]} rounded-xl p-4 hover:shadow-sm transition-all`}
+              className={`block bg-card border border-border border-l-4 ${URGENCY_BORDER[i.urgence] ?? ''} rounded-xl p-4 hover:shadow-sm transition-all`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground line-clamp-1">{i.title}</p>
+                  <p className="text-sm font-semibold text-foreground line-clamp-1">{i.titre}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{i.description}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.status]}`}>
-                    {STATUS_LABEL[i.status]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.statut] ?? ''}`}>
+                    {STATUS_LABEL[i.statut]}
                   </span>
-                  {i.status === 'en_attente_validation' && (
+                  {i.statut === 'terminee' && (
                     <PenLine size={14} className="text-purple-500" />
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-2">
-                {i.urgency === 'critique' && (
+                {i.urgence === 'critique' && (
                   <span className="flex items-center gap-1 text-xs text-red-500 font-medium">
                     <AlertTriangle size={11} />
                     Critique
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">
-                  {(i.equipment_ids?.length ?? 0)} équipement{(i.equipment_ids?.length ?? 0) > 1 ? 's' : ''}
+                  {(i.interventions_equipements?.length ?? 0)} équipement{(i.interventions_equipements?.length ?? 0) > 1 ? 's' : ''}
                 </span>
-                <span className="text-xs text-muted-foreground ml-auto">{formatDate(i.created_at)}</span>
+                <span className="text-xs text-muted-foreground ml-auto">{formatDate(i.cree_le)}</span>
               </div>
             </Link>
           ))}

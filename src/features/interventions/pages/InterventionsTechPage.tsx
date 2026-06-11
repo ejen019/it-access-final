@@ -1,26 +1,23 @@
 // =============================================================
 // InterventionsTechPage — Missions du technicien connecté
-//
-// Vue mobile-first des interventions assignées.
-// Filtres par statut. Lien vers le détail pour agir.
 // =============================================================
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
-import { useTechInterventions } from '../hooks/useInterventions'
+import { useInterventionsTechnicien } from '../hooks/useInterventions'
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active',
+  planifiee: 'Planifiée',
   en_cours: 'En cours',
-  en_attente_validation: 'En attente',
-  cloturee: 'Clôturée',
+  terminee: 'Terminée',
+  signee: 'Signée',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  en_attente_validation: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  cloturee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 }
 
 const URGENCY_BORDER: Record<string, string> = {
@@ -39,12 +36,12 @@ function formatDate(iso: string) {
 
 export function InterventionsTechPage() {
   const { profile } = useAuthStore()
-  const { data: interventions = [], isLoading, error } = useTechInterventions(profile?.id)
+  const { data: interventions = [], isLoading, error } = useInterventionsTechnicien(profile?.id)
 
-  const active    = interventions.filter((i: any) => i.status === 'active').length
-  const enCours   = interventions.filter((i: any) => i.status === 'en_cours').length
-  const enAttente = interventions.filter((i: any) => i.status === 'en_attente_validation').length
-  const critiques = interventions.filter((i: any) => i.urgency === 'critique' && ['active', 'en_cours'].includes(i.status)).length
+  const planifiee = interventions.filter((i: any) => i.statut === 'planifiee').length
+  const enCours   = interventions.filter((i: any) => i.statut === 'en_cours').length
+  const terminee  = interventions.filter((i: any) => i.statut === 'terminee').length
+  const critiques = interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut)).length
 
   if (isLoading) {
     return (
@@ -64,13 +61,12 @@ export function InterventionsTechPage() {
           Erreur : {(error as Error).message}
         </div>
       )}
-      {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-foreground">Mes Missions</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           {interventions.length} intervention{interventions.length > 1 ? 's' : ''}
           {enCours > 0 && ` · ${enCours} en cours`}
-          {enAttente > 0 && ` · ${enAttente} en attente`}
+          {terminee > 0 && ` · ${terminee} terminée${terminee > 1 ? 's' : ''}`}
         </p>
       </div>
 
@@ -78,9 +74,9 @@ export function InterventionsTechPage() {
       {interventions.length > 0 && (
         <div className="grid grid-cols-4 gap-2">
           {[
-            { label: 'Actives',   value: active,    text: 'text-blue-600 dark:text-blue-400' },
+            { label: 'Planif.',   value: planifiee, text: 'text-blue-600 dark:text-blue-400' },
             { label: 'En cours',  value: enCours,   text: 'text-orange-600 dark:text-orange-400' },
-            { label: 'Attente',   value: enAttente, text: 'text-purple-600 dark:text-purple-400' },
+            { label: 'Terminées', value: terminee,  text: 'text-purple-600 dark:text-purple-400' },
             { label: 'Critiques', value: critiques, text: 'text-red-600 dark:text-red-400' },
           ].map((s) => (
             <div key={s.label} className="bg-card border border-border rounded-xl p-3 text-center">
@@ -117,36 +113,36 @@ export function InterventionsTechPage() {
             <Link
               key={i.id}
               to={`/technicien/interventions/${i.id}`}
-              className={`flex items-start gap-0 bg-card border border-border border-l-4 ${URGENCY_BORDER[i.urgency]} rounded-xl overflow-hidden hover:shadow-sm transition-all`}
+              className={`flex items-start gap-0 bg-card border border-border border-l-4 ${URGENCY_BORDER[i.urgence] ?? ''} rounded-xl overflow-hidden hover:shadow-sm transition-all`}
             >
               <div className="flex-1 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 mb-1">
-                      {i.urgency === 'critique' && (
+                      {i.urgence === 'critique' && (
                         <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
                       )}
-                      <p className="text-sm font-semibold text-foreground line-clamp-1">{i.title}</p>
+                      <p className="text-sm font-semibold text-foreground line-clamp-1">{i.titre}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{i.companies?.company_name}</p>
+                    <p className="text-xs text-muted-foreground">{i.clients?.nom_entreprise ?? '—'}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.status]}`}>
-                      {STATUS_LABEL[i.status]}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.statut] ?? ''}`}>
+                      {STATUS_LABEL[i.statut]}
                     </span>
-                    <span className="text-xs text-muted-foreground">{formatDate(i.created_at)}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(i.cree_le)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-xs text-muted-foreground">
-                    {i.equipment_ids?.length ?? 0} équipement{(i.equipment_ids?.length ?? 0) > 1 ? 's' : ''}
+                    {i.interventions_equipements?.length ?? 0} équipement{(i.interventions_equipements?.length ?? 0) > 1 ? 's' : ''}
                   </span>
                   <span className="text-muted-foreground/30">·</span>
                   <span className={`text-xs font-medium ${
-                    i.urgency === 'critique' ? 'text-red-500' :
-                    i.urgency === 'moyenne' ? 'text-amber-600 dark:text-amber-400' :
+                    i.urgence === 'critique' ? 'text-red-500' :
+                    i.urgence === 'moyenne' ? 'text-amber-600 dark:text-amber-400' :
                     'text-muted-foreground'
-                  }`}>{URGENCY_LABEL[i.urgency]}</span>
+                  }`}>{URGENCY_LABEL[i.urgence]}</span>
                 </div>
               </div>
               <div className="flex items-center self-stretch px-3 border-l border-border/50 bg-muted/30">

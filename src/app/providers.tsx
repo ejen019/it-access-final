@@ -76,7 +76,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!alreadyLoaded) setLoading(true)
 
     const { data } = await supabase
-      .from('profiles')
+      .from('utilisateurs')
       .select('*')
       .eq('id', userId)
       .single()
@@ -95,12 +95,12 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'profiles',
+        table: 'utilisateurs',
         filter: `id=eq.${userId}`,
       }, async () => {
         // Rechargement silencieux (pas de spinner)
         const { data: updated } = await supabase
-          .from('profiles')
+          .from('utilisateurs')
           .select('*')
           .eq('id', userId)
           .single()

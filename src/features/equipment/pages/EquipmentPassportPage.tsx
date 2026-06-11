@@ -1,9 +1,5 @@
 // =============================================================
 // EquipmentPassportPage — Passeport numérique d'un équipement
-//
-// Accessible par : Admin, Technicien, Entreprise
-// Contient : infos, QR code, photos, documents, historique interventions
-// Bouton "Signaler une panne" si rôle = entreprise
 // =============================================================
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -14,104 +10,107 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
-import { useEquipmentDetail } from '../hooks/useEquipment'
+import { useEquipementDetail } from '../hooks/useEquipment'
 import { generateQRCodeDataUrl, getPassportUrl, printQRCode } from '@/lib/utils/qrcode'
 import { EquipmentForm } from '../components/EquipmentForm'
-import type { Equipment } from '@/types'
+import type { Equipement } from '@/types'
 
-// Historique des interventions liées à cet équipement
-async function fetchEquipmentInterventions(equipmentId: string) {
+async function fetchEquipementInterventions(equipementId: string) {
   const { data } = await supabase
-    .from('interventions')
-    .select('id, title, status, urgency, created_at, closed_at')
-    .contains('equipment_ids', [equipmentId])
-    .order('created_at', { ascending: false })
+    .from('interventions_equipements')
+    .select('interventions(id, titre, statut, urgence, cree_le)')
+    .eq('equipement_id', equipementId)
     .limit(10)
-  return data ?? []
+  return (data ?? []).map((r: any) => r.interventions).filter(Boolean)
 }
 
 const URGENCY_COLOR: Record<string, string> = {
-  faible: 'urgency-faible', moyenne: 'urgency-moyenne', critique: 'urgency-critique',
+  faible: 'bg-emerald-50 text-emerald-700', moyenne: 'bg-amber-50 text-amber-700', critique: 'bg-red-50 text-red-700',
+}
+const STATUS_LABEL: Record<string, string> = {
+  planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 
-// Modal de signalement de panne
 function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () => void }) {
   const { profile } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [description, setDescription] = useState('')
-  const [urgency, setUrgency] = useState<'faible' | 'moyenne' | 'critique'>('moyenne')
+  const [urgence, setUrgence] = useState<'faible' | 'moyenne' | 'critique'>('moyenne')
   const [isLoading, setIsLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsLoading(true)
 
-    // Récupère les techniciens affectés à l'entreprise (profiles.id via technicians.user_id)
-    const { data: assignedTechs } = await supabase
-      .from('assignments')
-      .select('technicians(user_id)')
-      .eq('company_id', equipment.company_id)
+    try {
+      // Techniciens assignés à ce client
+      const { data: affectations } = await supabase
+        .from('affectations')
+        .select('technicien_id, techniciens(utilisateur_id)')
+        .eq('client_id', equipment.client_id)
 
-    const technicianProfileIds = Array.from(new Set(
-      (assignedTechs ?? [])
-        .map((t: any) => t.technicians?.user_id as string | undefined)
-        .filter((id): id is string => Boolean(id))
-    ))
+      const technicienIds = (affectations ?? []).map((a: any) => a.technicien_id).filter(Boolean)
+      const techUserIds = (affectations ?? []).map((a: any) => a.techniciens?.utilisateur_id).filter(Boolean)
 
-    // Met l'équipement en panne
-    await supabase.from('equipment').update({ status: 'en_panne' }).eq('id', equipment.id)
+      // Mettre l'équipement en panne
+      await supabase.from('equipements').update({ etat: 'en_panne' }).eq('id', equipment.id)
 
-    // Crée une intervention
-    const { data: intervention } = await supabase.from('interventions').insert({
-      company_id: equipment.company_id,
-      equipment_ids: [equipment.id],
-      title: `Panne — ${equipment.name}`,
-      description,
-      urgency,
-      status: 'active',
-      created_by: profile!.id,
-      technician_ids: technicianProfileIds,
-      photos: [],
-    }).select().single()
+      // Créer l'intervention
+      const { data: intervention } = await supabase.from('interventions').insert({
+        client_id: equipment.client_id,
+        titre: `Panne — ${equipment.nom}`,
+        description,
+        urgence,
+        statut: 'planifiee',
+        cree_par: profile!.id,
+      }).select().single()
 
-    if (intervention) {
-      // Notifie les admins ET sudos
-      const { data: admins } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['admin', 'sudo'])
-      if (admins?.length) {
-        await supabase.from('notifications').insert(
-          admins.map((a: any) => ({
-            user_id: a.id,
-            type: 'new_intervention' as const,
-            title: `Panne signalée — ${equipment.companies?.company_name}`,
-            body: `${equipment.name} : ${description.slice(0, 80)}`,
-            link: '/admin/interventions',
-          }))
-        )
+      if (intervention) {
+        await supabase.from('interventions_equipements').insert({
+          intervention_id: intervention.id,
+          equipement_id: equipment.id,
+        })
+
+        if (technicienIds.length) {
+          await supabase.from('interventions_techniciens').insert(
+            technicienIds.map((tid: string) => ({ intervention_id: intervention.id, technicien_id: tid }))
+          )
+        }
+
+        const { data: admins } = await supabase
+          .from('utilisateurs').select('id').in('role', ['admin', 'super_admin'])
+        if (admins?.length) {
+          await supabase.from('notifications').insert(
+            admins.map((a: any) => ({
+              utilisateur_id: a.id,
+              titre: `Panne signalée — ${equipment.clients?.nom_entreprise}`,
+              corps: `${equipment.nom} : ${description.slice(0, 80)}`,
+              lien: '/admin/interventions',
+            }))
+          )
+        }
+
+        if (techUserIds.length) {
+          await supabase.from('notifications').insert(
+            techUserIds.map((uid: string) => ({
+              utilisateur_id: uid,
+              titre: `Nouvelle panne — ${equipment.nom}`,
+              corps: description.slice(0, 80),
+              lien: `/technicien/interventions/${intervention.id}`,
+            }))
+          )
+        }
       }
-      // Notifie les techniciens assignés à l'entreprise
-      if (technicianProfileIds.length) {
-        await supabase.from('notifications').insert(
-          technicianProfileIds.map((uid: string) => ({
-            user_id: uid,
-            type: 'intervention_assigned' as const,
-            title: `Nouvelle panne — ${equipment.name}`,
-            body: description.slice(0, 80),
-            link: `/technicien/interventions/${intervention.id}`,
-          }))
-        )
-      }
+
+      queryClient.invalidateQueries({ queryKey: ['equipement-detail', equipment.id] })
+      queryClient.invalidateQueries({ queryKey: ['equipements', equipment.client_id] })
+      onClose()
+      navigate(profile?.role === 'client' ? '/entreprise/interventions' : '/technicien/interventions')
+    } finally {
+      setIsLoading(false)
     }
-
-    queryClient.invalidateQueries({ queryKey: ['equipment-detail', equipment.id] })
-    queryClient.invalidateQueries({ queryKey: ['equipment', equipment.company_id] })
-    setIsLoading(false)
-    onClose()
-    navigate(profile?.role === 'entreprise' ? '/entreprise/interventions' : '/technicien/interventions')
   }
 
   return (
@@ -119,7 +118,7 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
       <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md">
         <div className="px-5 pt-5 pb-3 border-b border-border">
           <h2 className="font-semibold text-foreground">Signaler une panne</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{equipment.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{equipment.nom}</p>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="space-y-1.5">
@@ -127,8 +126,7 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              required
-              rows={3}
+              required rows={3}
               placeholder="Décrivez le problème observé…"
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
@@ -137,12 +135,9 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
             <label className="text-sm font-medium text-foreground">{"Niveau d'urgence"}</label>
             <div className="flex gap-2">
               {(['faible', 'moyenne', 'critique'] as const).map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => setUrgency(u)}
+                <button key={u} type="button" onClick={() => setUrgence(u)}
                   className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                    urgency === u ? URGENCY_COLOR[u] + ' ring-2 ring-current' : 'bg-muted text-muted-foreground'
+                    urgence === u ? `${URGENCY_COLOR[u]} ring-2 ring-current` : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {u}
@@ -175,23 +170,22 @@ export function EquipmentPassportPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [showPanne, setShowPanne] = useState(false)
 
-  const { data: equipment, isLoading } = useEquipmentDetail(id)
+  const { data: equipment, isLoading } = useEquipementDetail(id)
   const { data: interventions = [] } = useQuery({
-    queryKey: ['equipment-interventions', id],
-    queryFn: () => fetchEquipmentInterventions(id!),
+    queryKey: ['equipement-interventions', id],
+    queryFn: () => fetchEquipementInterventions(id!),
     enabled: !!id,
   })
 
-  // Génère le QR code au chargement
   useEffect(() => {
     if (id) generateQRCodeDataUrl(id).then(setQrDataUrl)
   }, [id])
 
   const backLink = {
-    sudo: '/sudo/dashboard',
+    super_admin: '/sudo/dashboard',
     admin: '/admin/equipements',
     technicien: '/technicien/dashboard',
-    entreprise: '/entreprise/parc',
+    client: '/entreprise/parc',
   }[profile?.role ?? 'admin']
 
   if (isLoading) {
@@ -199,7 +193,6 @@ export function EquipmentPassportPage() {
       <div className="p-4 space-y-4 animate-pulse">
         <div className="h-8 w-32 bg-muted rounded" />
         <div className="h-48 bg-muted rounded-xl" />
-        <div className="h-32 bg-muted rounded-xl" />
       </div>
     )
   }
@@ -215,8 +208,8 @@ export function EquipmentPassportPage() {
     )
   }
 
-  const canEdit = profile?.role === 'admin' || profile?.role === 'sudo' || profile?.role === 'entreprise'
-  const canSignalPanne = profile?.role === 'entreprise' && equipment.status === 'operationnel'
+  const canEdit = ['admin', 'super_admin', 'client'].includes(profile?.role ?? '')
+  const canSignalPanne = profile?.role === 'client' && equipment.etat === 'operationnel'
 
   return (
     <div className="page-transition">
@@ -226,15 +219,15 @@ export function EquipmentPassportPage() {
           <ArrowLeft size={20} className="text-foreground" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-foreground truncate">{equipment.name}</h1>
-          <p className="text-xs text-muted-foreground">{equipment.companies?.company_name}</p>
+          <h1 className="text-base font-semibold text-foreground truncate">{equipment.nom}</h1>
+          <p className="text-xs text-muted-foreground">{(equipment as any).clients?.nom_entreprise}</p>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setShowQr(true)} className="p-2 rounded-lg hover:bg-accent transition-colors" title="Voir QR Code">
+          <button onClick={() => setShowQr(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
             <QrCode size={18} className="text-foreground" />
           </button>
           {canEdit && (
-            <button onClick={() => setShowEdit(true)} className="p-2 rounded-lg hover:bg-accent transition-colors" title="Modifier">
+            <button onClick={() => setShowEdit(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
               <Edit2 size={18} className="text-foreground" />
             </button>
           )}
@@ -242,12 +235,14 @@ export function EquipmentPassportPage() {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Statut */}
-        <div className="flex items-center gap-3">
+        {/* État */}
+        <div className="flex items-center gap-3 flex-wrap">
           <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-            equipment.status === 'operationnel' ? 'status-operationnel' : 'status-en-panne'
+            equipment.etat === 'operationnel' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
+            equipment.etat === 'maintenance'  ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+            'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
           }`}>
-            {equipment.status === 'operationnel' ? '● Opérationnel' : '● En panne'}
+            ● {equipment.etat === 'operationnel' ? 'Opérationnel' : equipment.etat === 'maintenance' ? 'Maintenance' : 'En panne'}
           </span>
           {canSignalPanne && (
             <button
@@ -260,25 +255,23 @@ export function EquipmentPassportPage() {
           )}
         </div>
 
-        {/* QR permanent du passeport */}
+        {/* QR Code */}
         {qrDataUrl && (
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex flex-col md:flex-row md:items-center gap-4">
               <div className="mx-auto md:mx-0 w-[156px] h-[156px] rounded-lg border border-border p-2 bg-white">
-                <img src={qrDataUrl} alt={`QR code ${equipment.name}`} className="w-full h-full" />
+                <img src={qrDataUrl} alt={`QR ${equipment.nom}`} className="w-full h-full" />
               </div>
               <div className="flex-1 space-y-2 text-center md:text-left">
                 <h2 className="text-sm font-semibold text-foreground">QR Code du passeport</h2>
-                <p className="text-xs text-muted-foreground">
-                  Scan direct vers la fiche: <span className="font-mono">{getPassportUrl(equipment.id)}</span>
-                </p>
+                <p className="text-xs text-muted-foreground font-mono">{getPassportUrl(equipment.id)}</p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
-                    onClick={() => printQRCode(equipment.id, equipment.name)}
+                    onClick={() => printQRCode(equipment.id, equipment.nom)}
                     className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border text-sm hover:bg-accent transition-colors"
                   >
                     <Printer size={14} />
-                    Imprimer le QR
+                    Imprimer
                   </button>
                   <button
                     onClick={() => setShowQr(true)}
@@ -294,9 +287,9 @@ export function EquipmentPassportPage() {
         )}
 
         {/* Photos */}
-        {equipment.photos?.length > 0 && (
+        {(equipment as any).photos?.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {equipment.photos.map((url: string, i: number) => (
+            {(equipment as any).photos.map((url: string, i: number) => (
               <img key={i} src={url} alt="" className="h-32 w-32 object-cover rounded-xl flex-shrink-0 border border-border" />
             ))}
           </div>
@@ -305,12 +298,12 @@ export function EquipmentPassportPage() {
         {/* Informations */}
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {[
-            { icon: Tag, label: 'Catégorie', value: equipment.category },
-            { icon: Tag, label: 'Modèle', value: equipment.model },
-            { icon: Tag, label: 'N° de série', value: equipment.serial_number },
-            { icon: MapPin, label: 'Localisation', value: equipment.location },
-            { icon: Calendar, label: "Date d'achat", value: equipment.purchase_date ? new Date(equipment.purchase_date).toLocaleDateString('fr-FR') : null },
-            { icon: Calendar, label: 'Fin garantie', value: equipment.warranty_end ? new Date(equipment.warranty_end).toLocaleDateString('fr-FR') : null },
+            { icon: Tag,      label: 'Catégorie',   value: equipment.categorie },
+            { icon: Tag,      label: 'Modèle',      value: equipment.modele },
+            { icon: Tag,      label: 'N° de série', value: equipment.numero_serie },
+            { icon: MapPin,   label: 'Emplacement', value: equipment.emplacement },
+            { icon: Calendar, label: "Date d'achat", value: equipment.date_achat ? new Date(equipment.date_achat).toLocaleDateString('fr-FR') : null },
+            { icon: Calendar, label: 'Fin garantie', value: equipment.fin_garantie ? new Date(equipment.fin_garantie).toLocaleDateString('fr-FR') : null },
           ].filter(({ value }) => value).map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-center gap-3 px-4 py-3">
               <Icon size={15} className="text-muted-foreground flex-shrink-0" />
@@ -318,32 +311,26 @@ export function EquipmentPassportPage() {
               <span className="text-sm text-foreground">{value}</span>
             </div>
           ))}
-          {equipment.notes && (
+          {(equipment as any).notes && (
             <div className="px-4 py-3">
               <p className="text-xs text-muted-foreground mb-1">Notes</p>
-              <p className="text-sm text-foreground">{equipment.notes}</p>
+              <p className="text-sm text-foreground">{(equipment as any).notes}</p>
             </div>
           )}
         </div>
 
-        {/* Documents attachés */}
-        {equipment.equipment_documents?.length > 0 && (
+        {/* Documents */}
+        {(equipment as any).documents_equipement?.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-foreground">Documents</h2>
             <div className="space-y-2">
-              {equipment.equipment_documents.map((doc: any) => (
-                <a
-                  key={doc.id}
-                  href={doc.file_url}
-                  download={doc.name}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:bg-accent transition-colors"
-                >
+              {(equipment as any).documents_equipement.map((doc: any) => (
+                <a key={doc.id} href={doc.url_fichier} download={doc.nom} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:bg-accent transition-colors">
                   <FileText size={18} className="text-primary flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground">{(doc.file_size / 1024).toFixed(0)} KB</p>
+                    <p className="text-sm font-medium text-foreground truncate">{doc.nom}</p>
+                    <p className="text-xs text-muted-foreground">{((doc.taille_octets ?? 0) / 1024).toFixed(0)} KB</p>
                   </div>
                   <Download size={15} className="text-muted-foreground" />
                 </a>
@@ -352,7 +339,7 @@ export function EquipmentPassportPage() {
           </div>
         )}
 
-        {/* Historique des interventions */}
+        {/* Historique interventions */}
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">
             Historique des interventions ({interventions.length})
@@ -361,18 +348,17 @@ export function EquipmentPassportPage() {
             <p className="text-sm text-muted-foreground">Aucune intervention enregistrée.</p>
           ) : (
             <div className="space-y-2">
-              {interventions.map((i: any) => (
-                <div key={i.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+              {(interventions as any[]).map((inv) => (
+                <div key={inv.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
                   <Wrench size={16} className="text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{i.title}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{inv.titre}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(i.created_at).toLocaleDateString('fr-FR')}
-                      {i.closed_at && ` → ${new Date(i.closed_at).toLocaleDateString('fr-FR')}`}
+                      {new Date(inv.cree_le).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${URGENCY_COLOR[i.urgency]}`}>
-                    {i.urgency}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${URGENCY_COLOR[inv.urgence] ?? ''}`}>
+                    {inv.urgence}
                   </span>
                 </div>
               ))}
@@ -381,15 +367,15 @@ export function EquipmentPassportPage() {
         </div>
       </div>
 
-      {/* Modal QR Code */}
+      {/* Modal QR */}
       {showQr && qrDataUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setShowQr(false)}>
           <div className="bg-card border border-border rounded-2xl p-6 space-y-4 max-w-xs w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-foreground text-center">QR Code</h3>
             <img src={qrDataUrl} alt="QR Code" className="w-full rounded-lg" />
-            <p className="text-xs text-muted-foreground text-center">{equipment.name}</p>
+            <p className="text-xs text-muted-foreground text-center">{equipment.nom}</p>
             <button
-              onClick={() => printQRCode(equipment.id, equipment.name)}
+              onClick={() => printQRCode(equipment.id, equipment.nom)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
             >
               <Printer size={16} />
@@ -408,8 +394,8 @@ export function EquipmentPassportPage() {
             </div>
             <div className="p-5">
               <EquipmentForm
-                companyId={equipment.company_id}
-                equipment={equipment as Equipment}
+                clientId={equipment.client_id}
+                equipment={equipment as unknown as Equipement}
                 onSuccess={() => setShowEdit(false)}
                 onCancel={() => setShowEdit(false)}
               />
@@ -418,7 +404,7 @@ export function EquipmentPassportPage() {
         </div>
       )}
 
-      {/* Modal signaler panne */}
+      {/* Modal panne */}
       {showPanne && (
         <SignalPanneModal equipment={equipment} onClose={() => setShowPanne(false)} />
       )}

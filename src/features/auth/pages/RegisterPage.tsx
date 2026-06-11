@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase/client'
 import { fetchPublicConfig, type PricingPlanKey } from '@/lib/publicConfig'
 import { useQuery } from '@tanstack/react-query'
 
-type Role = 'entreprise' | 'technicien'
+type Role = 'client' | 'technicien'
 
 export function RegisterPage() {
   const [step, setStep] = useState<'role' | 'form'>('role')
@@ -51,11 +51,11 @@ export function RegisterPage() {
       setError('Le mot de passe doit contenir au moins 8 caractères.')
       return
     }
-    if (role === 'entreprise' && !companyName.trim()) {
+    if (role === 'client' && !companyName.trim()) {
       setError("Le nom de l'entreprise est requis.")
       return
     }
-    if (role === 'entreprise' && !confirmedPlan) {
+    if (role === 'client' && !confirmedPlan) {
       setError("Confirmez la formule choisie pour continuer.")
       return
     }
@@ -68,11 +68,11 @@ export function RegisterPage() {
         body: {
           email: email.trim().toLowerCase(),
           password,
-          full_name: fullName.trim(),
-          phone: phone.trim() || null,
+          nom: fullName.trim(),
+          telephone: phone.trim() || null,
           role,
-          company_name: role === 'entreprise' ? companyName.trim() : undefined,
-          selected_plan: role === 'entreprise' ? selectedPlan : undefined,
+          nom_entreprise: role === 'client' ? companyName.trim() : undefined,
+          selected_plan: role === 'client' ? selectedPlan : undefined,
         },
       })
 
@@ -172,7 +172,7 @@ export function RegisterPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                {role === 'entreprise' ? 'Nom du responsable' : 'Nom complet'}
+                {role === 'client' ? 'Nom du responsable' : 'Nom complet'}
               </label>
               <input
                 type="text"
@@ -183,7 +183,7 @@ export function RegisterPage() {
               />
             </div>
 
-            {role === 'entreprise' && (
+            {role === 'client' && (
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">Nom de l'entreprise</label>

@@ -8,22 +8,26 @@ import { Monitor, AlertTriangle, Wrench, PenLine, ArrowRight, Copy, CheckCircle2
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
-import { useCompanyEquipment } from '@/features/equipment/hooks/useEquipment'
-import { useCompanyInterventions } from '@/features/interventions/hooks/useInterventions'
+import { useClientEquipement } from '@/features/equipment/hooks/useEquipment'
+import { useInterventionsClient } from '@/features/interventions/hooks/useInterventions'
 import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
 
 async function fetchMyCompany(userId: string) {
   const { data } = await supabase
-    .from('companies')
-    .select('id, company_name, validation_code, contract_id')
-    .eq('user_id', userId)
+    .from('clients')
+    .select('id, nom_entreprise, code_signature')
+    .eq('utilisateur_id', userId)
     .single()
   return data
 }
 
-async function fetchContract(contractId: string) {
+async function fetchContrat(clientId: string) {
   const { data } = await supabase
-    .from('contracts').select('*').eq('id', contractId).single()
+    .from('contrats')
+    .select('*, abonnements(*)')
+    .eq('client_id', clientId)
+    .eq('est_actif', true)
+    .single()
   return data
 }
 
@@ -52,14 +56,14 @@ function getGreeting() {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  active: 'Active', en_cours: 'En cours',
-  en_attente_validation: 'En attente', cloturee: 'Clôturée', annulee: 'Annulée',
+  planifiee: 'Planifiée', en_cours: 'En cours',
+  terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 const STATUS_CLASS: Record<string, string> = {
-  active: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+  planifiee: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
   en_cours: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  en_attente_validation: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  cloturee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+  terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
+  signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
 
@@ -67,27 +71,27 @@ export function EntrepriseDashboardPage() {
   const { profile } = useAuthStore()
   const [codeCopied, setCodeCopied] = useState(false)
 
-  const { data: company } = useQuery({
+  const { data: client } = useQuery({
     queryKey: ['my-company', profile?.id],
     queryFn: () => fetchMyCompany(profile!.id),
     enabled: !!profile,
   })
-  const { data: contract } = useQuery({
-    queryKey: ['my-contract', company?.contract_id],
-    queryFn: () => fetchContract(company!.contract_id!),
-    enabled: !!company?.contract_id,
+  const { data: contrat } = useQuery({
+    queryKey: ['my-contrat', client?.id],
+    queryFn: () => fetchContrat(client!.id),
+    enabled: !!client?.id,
   })
-  const { data: equipment = [] } = useCompanyEquipment(company?.id)
-  const { data: interventions = [] } = useCompanyInterventions(company?.id)
+  const { data: equipment = [] } = useClientEquipement(client?.id)
+  const { data: interventions = [] } = useInterventionsClient(client?.id)
 
-  const pannes       = equipment.filter((e) => e.status === 'en_panne').length
-  const toSign       = interventions.filter((i: any) => i.status === 'en_attente_validation').length
-  const activeInterv = interventions.filter((i: any) => ['active', 'en_cours'].includes(i.status)).length
-  const recentes     = [...interventions].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 4)
+  const pannes       = equipment.filter((e: any) => e.etat === 'en_panne').length
+  const toSign       = interventions.filter((i: any) => i.statut === 'terminee').length
+  const activeInterv = interventions.filter((i: any) => ['planifiee', 'en_cours'].includes(i.statut)).length
+  const recentes     = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   async function copyCode() {
-    if (!company?.validation_code) return
-    await navigator.clipboard.writeText(company.validation_code)
+    if (!client?.code_signature) return
+    await navigator.clipboard.writeText(client.code_signature)
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
   }
@@ -101,8 +105,8 @@ export function EntrepriseDashboardPage() {
           <Building2 size={17} className="text-primary" />
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">{getGreeting()}, {profile?.full_name?.split(' ')[0]}</p>
-          <h1 className="text-lg font-bold text-foreground leading-tight">{company?.company_name ?? 'Mon Espace'}</h1>
+          <p className="text-xs text-muted-foreground">{getGreeting()}, {profile?.nom}</p>
+          <h1 className="text-lg font-bold text-foreground leading-tight">{client?.nom_entreprise ?? 'Mon Espace'}</h1>
         </div>
       </div>
 
@@ -186,7 +190,7 @@ export function EntrepriseDashboardPage() {
       </div>
 
       {/* Code de validation */}
-      {company?.validation_code && (
+      {client?.code_signature && (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-xs font-semibold text-foreground">Code de validation</p>
@@ -198,7 +202,7 @@ export function EntrepriseDashboardPage() {
           </div>
           <div className="px-4 py-3">
             <p className="font-mono text-xl font-bold text-foreground tracking-widest">
-              {company.validation_code}
+              {client.code_signature}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Donnez ce code au technicien pour valider une intervention
@@ -208,29 +212,29 @@ export function EntrepriseDashboardPage() {
       )}
 
       {/* Contrat */}
-      {contract && (
+      {contrat && (
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-foreground">Contrat {contract.plan}</p>
+            <p className="text-xs font-semibold text-foreground">Contrat {contrat.abonnements?.plan}</p>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              contract.is_active ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-muted text-muted-foreground'
+              contrat.est_actif ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-muted text-muted-foreground'
             }`}>
-              {contract.is_active ? 'Actif' : 'Expiré'}
+              {contrat.est_actif ? 'Actif' : 'Expiré'}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Expire le {new Date(contract.end_date).toLocaleDateString('fr-FR')}
+            Expire le {new Date(contrat.date_fin).toLocaleDateString('fr-FR')}
           </p>
-          {contract.max_equipment && (
+          {contrat.abonnements?.max_equipements && (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Équipements</span>
-                <span>{equipment.length} / {contract.max_equipment}</span>
+                <span>{equipment.length} / {contrat.abonnements.max_equipements}</span>
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (equipment.length / contract.max_equipment) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (equipment.length / contrat.abonnements.max_equipements) * 100)}%` }}
                 />
               </div>
             </div>
@@ -252,9 +256,9 @@ export function EntrepriseDashboardPage() {
             {recentes.map((inv: any) => (
               <Link key={inv.id} to={`/entreprise/interventions/${inv.id}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors">
-                <p className="text-sm text-foreground flex-1 truncate">{inv.title}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.status] ?? ''}`}>
-                  {STATUS_LABEL[inv.status]}
+                <p className="text-sm text-foreground flex-1 truncate">{inv.titre}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.statut] ?? ''}`}>
+                  {STATUS_LABEL[inv.statut]}
                 </span>
               </Link>
             ))}

@@ -372,7 +372,7 @@ export function MessagingPage() {
   const myDisplayName = `${profile.prenom ?? ''} ${profile.nom}`.trim()
 
   return (
-    <div className="h-[calc(100vh-7.5rem)] md:h-[calc(100vh-4rem)] flex overflow-hidden">
+    <div className="h-[calc(100vh-7.5rem)] md:h-[calc(100vh-6.5rem)] flex overflow-hidden rounded-xl border border-border">
       <div className={`
         w-full md:w-72 border-r border-border bg-card flex flex-col flex-shrink-0
         ${selectedContact ? 'hidden md:flex' : 'flex'}

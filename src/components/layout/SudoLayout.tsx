@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Monitor, Wrench, LogOut, History } from 'lucide-react'
+import { LayoutDashboard, Users, Monitor, Wrench, LogOut, History, Menu, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
@@ -27,6 +28,7 @@ function Initials({ name }: { name: string }) {
 export function SudoLayout() {
   const { profile, reset } = useAuthStore()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   const displayName = `${profile?.prenom ?? ''} ${profile?.nom ?? ''}`.trim() || 'Super Admin'
 
   async function handleLogout() {
@@ -37,20 +39,27 @@ export function SudoLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <aside className="w-56 flex-shrink-0 bg-card border-r border-border flex flex-col">
+      {open && (
+        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setOpen(false)} />
+      )}
+
+      <aside className={`fixed md:static z-40 inset-y-0 left-0 w-60 md:w-56 flex-shrink-0 bg-card border-r border-border flex flex-col transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="h-14 flex items-center px-4 border-b border-border gap-2.5">
           <div className="w-6 h-6 rounded-md bg-violet-600 flex items-center justify-center flex-shrink-0">
             <span className="text-[10px] font-bold text-white leading-none">S</span>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[13px] font-semibold text-foreground leading-none">IT-Access</p>
             <p className="text-[10px] text-violet-500 mt-0.5 font-medium">Super Admin</p>
           </div>
+          <button onClick={() => setOpen(false)} className="md:hidden p-1 text-muted-foreground">
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to}
+            <NavLink key={to} to={to} onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors ${
                   isActive
@@ -71,7 +80,7 @@ export function SudoLayout() {
         </nav>
 
         <div className="border-t border-border p-2 space-y-0.5">
-          <NavLink to="/sudo/profil"
+          <NavLink to="/sudo/profil" onClick={() => setOpen(false)}
             className={({ isActive }) =>
               `flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors ${
                 isActive ? 'bg-violet-500/10 text-violet-600 font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -90,14 +99,19 @@ export function SudoLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
-          <p className="text-[13px] text-muted-foreground">
-            Mode <span className="text-violet-600 dark:text-violet-400 font-medium">Super Admin</span>
-          </p>
+        <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 md:px-6 flex-shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setOpen(true)} className="md:hidden p-1 text-muted-foreground">
+              <Menu size={20} />
+            </button>
+            <p className="text-[13px] text-muted-foreground truncate">
+              Mode <span className="text-violet-600 dark:text-violet-400 font-medium">Super Admin</span>
+            </p>
+          </div>
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-5 md:py-6">
             <Outlet />
           </div>
         </main>

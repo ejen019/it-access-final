@@ -833,6 +833,10 @@ export type Database = {
     }
     Functions: {
       mon_role: { Args: Record<PropertyKey, never>; Returns: string }
+      mes_contacts_messagerie: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; nom: string; prenom: string | null; role: string; email: string }[]
+      }
     }
     Enums: {
       [_ in never]: never

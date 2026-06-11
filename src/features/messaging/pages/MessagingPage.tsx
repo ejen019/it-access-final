@@ -8,7 +8,7 @@
 // présence en ligne (points verts), compteur de messages non lus.
 // =============================================================
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, MessageCircle, Loader2, ArrowLeft, CornerUpLeft, X, Check, CheckCheck } from 'lucide-react'
+import { Send, MessageCircle, Loader2, ArrowLeft, CornerUpLeft, X, Check, CheckCheck, Search } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 
@@ -89,24 +89,14 @@ function useOnlineUsers(myId: string | undefined): Set<string> {
 
 // ----- Requêtes -----
 
-async function fetchContacts(role: string): Promise<Contact[]> {
-  if (role === 'admin' || role === 'super_admin') {
-    const { data } = await supabase
-      .from('utilisateurs')
-      .select('id, nom, prenom, role, email')
-      .in('role', ['client', 'technicien'])
-      .eq('compte_valide', true)
-      .eq('est_actif', true)
-      .order('nom')
-    return data ?? []
-  }
-  const { data } = await supabase
-    .from('utilisateurs')
-    .select('id, nom, prenom, role, email')
-    .eq('role', 'admin')
-    .eq('est_actif', true)
-    .order('nom')
-  return data ?? []
+// Contacts via fonction SECURITY DEFINER (contourne la RLS util_select).
+// admin/super_admin : clients + techniciens.
+// technicien : admins + entreprises liées à une intervention active assignée.
+// client : admins + techniciens affectés à une intervention active.
+async function fetchContacts(): Promise<Contact[]> {
+  const { data, error } = await supabase.rpc('mes_contacts_messagerie')
+  if (error) throw error
+  return (data ?? []) as Contact[]
 }
 
 async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
@@ -160,60 +150,104 @@ async function sendMessage(params: {
 
 // ----- Composant liste contacts -----
 
+// Catégories de contacts (sections distinctes)
+const CONTACT_GROUPS: { key: string; title: string; roles: string[] }[] = [
+  { key: 'admins', title: 'Administration', roles: ['admin', 'super_admin'] },
+  { key: 'techs',  title: 'Techniciens',    roles: ['technicien'] },
+  { key: 'clients', title: 'Entreprises',   roles: ['client'] },
+]
+
+function ContactRow({
+  c, selected, online, unread, onSelect,
+}: {
+  c: Contact; selected: boolean; online: boolean; unread: number; onSelect: (c: Contact) => void
+}) {
+  return (
+    <button
+      onClick={() => onSelect(c)}
+      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent border-l-2 ${
+        selected ? 'bg-accent border-primary' : 'border-transparent'
+      }`}
+    >
+      <div className="relative flex-shrink-0">
+        <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center">
+          <span className="text-sm font-bold text-white">{c.nom.charAt(0).toUpperCase()}</span>
+        </div>
+        {online && (
+          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-card" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>
+          {displayName(c)}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          {online ? <span className="text-emerald-600 dark:text-emerald-400">En ligne</span> : ROLE_LABEL[c.role]}
+        </p>
+      </div>
+      {unread > 0 && (
+        <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full flex-shrink-0">
+          {unread}
+        </span>
+      )}
+    </button>
+  )
+}
+
 function ContactList({
   contacts,
+  search,
   selectedId,
   onlineIds,
   unreadCounts,
   onSelect,
 }: {
   contacts: Contact[]
+  search: string
   selectedId: string | null
   onlineIds: Set<string>
   unreadCounts: Record<string, number>
   onSelect: (contact: Contact) => void
 }) {
-  // Contacts avec messages non lus d'abord
-  const sorted = [...contacts].sort((a, b) => (unreadCounts[b.id] ?? 0) - (unreadCounts[a.id] ?? 0))
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? contacts.filter((c) =>
+        displayName(c).toLowerCase().includes(q) || (c.email ?? '').toLowerCase().includes(q))
+    : contacts
+
+  if (filtered.length === 0) {
+    return (
+      <p className="p-6 text-center text-sm text-muted-foreground">
+        {q ? 'Aucun contact ne correspond' : 'Aucun contact disponible'}
+      </p>
+    )
+  }
 
   return (
-    <div className="divide-y divide-border">
-      {contacts.length === 0 && (
-        <p className="p-6 text-center text-sm text-muted-foreground">Aucun contact disponible</p>
-      )}
-      {sorted.map((c) => {
-        const unread = unreadCounts[c.id] ?? 0
-        const isOnline = onlineIds.has(c.id)
+    <div>
+      {CONTACT_GROUPS.map((group) => {
+        const members = filtered
+          .filter((c) => group.roles.includes(c.role))
+          .sort((a, b) => (unreadCounts[b.id] ?? 0) - (unreadCounts[a.id] ?? 0) || displayName(a).localeCompare(displayName(b)))
+        if (members.length === 0) return null
         return (
-          <button
-            key={c.id}
-            onClick={() => onSelect(c)}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-accent border-l-2 ${
-              selectedId === c.id ? 'bg-accent border-primary' : 'border-transparent'
-            }`}
-          >
-            <div className="relative flex-shrink-0">
-              <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center">
-                <span className="text-sm font-bold text-white">{c.nom.charAt(0).toUpperCase()}</span>
-              </div>
-              {isOnline && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-card" />
-              )}
+          <div key={group.key}>
+            <p className="px-4 pt-3 pb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/30">
+              {group.title} · {members.length}
+            </p>
+            <div className="divide-y divide-border">
+              {members.map((c) => (
+                <ContactRow
+                  key={c.id}
+                  c={c}
+                  selected={selectedId === c.id}
+                  online={onlineIds.has(c.id)}
+                  unread={unreadCounts[c.id] ?? 0}
+                  onSelect={onSelect}
+                />
+              ))}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>
-                {displayName(c)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {isOnline ? <span className="text-emerald-600 dark:text-emerald-400">En ligne</span> : ROLE_LABEL[c.role]}
-              </p>
-            </div>
-            {unread > 0 && (
-              <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full flex-shrink-0">
-                {unread}
-              </span>
-            )}
-          </button>
+          </div>
         )
       })}
     </div>
@@ -475,6 +509,7 @@ export function MessagingPage() {
   const [loading, setLoading] = useState(true)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const [search, setSearch] = useState('')
 
   const onlineIds = useOnlineUsers(profile?.id)
 
@@ -485,7 +520,7 @@ export function MessagingPage() {
 
   useEffect(() => {
     if (!profile) return
-    fetchContacts(profile.role).then((c) => {
+    fetchContacts().then((c) => {
       setContacts(c)
       setLoading(false)
     })
@@ -531,6 +566,16 @@ export function MessagingPage() {
           <p className="text-xs text-muted-foreground mt-0.5">
             {contacts.length} contact{contacts.length > 1 ? 's' : ''}
           </p>
+          <div className="relative mt-3">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un contact…"
+              className="w-full pl-8 pr-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading ? (
@@ -540,6 +585,7 @@ export function MessagingPage() {
           ) : (
             <ContactList
               contacts={contacts}
+              search={search}
               selectedId={selectedContact?.id ?? null}
               onlineIds={onlineIds}
               unreadCounts={unreadCounts}

@@ -64,8 +64,16 @@ Le user veut (message courant) :
 18. ✅ **Icône Historique** = même style que l'en-tête de formulaire (`rounded-xl gradient-primary` + icône blanche).
 19. ✅ **Vue technicien web** : `TechnicienLayout` désormais responsive — **sidebar desktop** (nav + profil + déconnexion, style AdminLayout) sur `md+`, **bottom-nav conservée** sur mobile (`md:hidden`). Header desktop = salutation + cloche ; mobile = marque + avatar. Contenu `max-w-4xl` centré sur desktop. Bottom-nav repassée en `z-40` (sous les modales z-50).
 
+## Session vue web Entreprise + refonte messagerie (livré)
+20. ✅ **EntrepriseLayout responsive** : même pattern que technicien (sidebar desktop `md+` + bottom-nav mobile conservée).
+21. ✅ **BUG messagerie technicien/client = RLS** : `util_select` n'autorise que `id = auth.uid()` pour non-admins → un technicien/client ne pouvait lire AUCUN admin. Fix : fonction **SECURITY DEFINER `mes_contacts_messagerie()`** (migration appliquée + ajoutée à `schema.sql`, signature ajoutée à `database.types.ts`) qui renvoie selon le rôle :
+    - admin/super_admin → clients + techniciens valides ;
+    - **technicien** → tous les admins + **entreprises** ayant une intervention active (statut ∉ signee/annulee) qui lui est assignée (apparaît à la planif, disparaît à la signature) ;
+    - **client** → tous les admins + **techniciens** affectés à une intervention active chez lui.
+22. ✅ **Messagerie UI** : `fetchContacts` via `supabase.rpc('mes_contacts_messagerie')`, contacts **groupés en sections distinctes** (Administration / Techniciens / Entreprises) avec compteur, **barre de recherche** (nom/email). Présence, ticks, non-lus conservés.
+    - NB : la liste de contacts se recalcule au chargement de la page messagerie (pas en temps réel sur changement d'intervention) — recharger si besoin.
+
 ## Reste éventuel
-- Vue web pour `EntrepriseLayout` (même pattern que technicien) si demandé.
 - Refonte d'autres listes (`SudoEquipmentPage`, `SudoUsersPage`, `UsersPage`) au même standard si redemandé.
 - Prérequis Realtime : table `messages` doit avoir UPDATE activé dans la publication realtime (pour propager `lu`). Presence ne nécessite pas de DB.
 - **Le user teste avant validation** (son `npm run dev` sur :5173, hot-reload — le preview MCP ne peut pas binder).

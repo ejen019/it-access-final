@@ -407,6 +407,64 @@ RETURNS TEXT AS $$
   SELECT role FROM utilisateurs WHERE id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+-- Contacts de messagerie selon le rôle (contourne la RLS util_select de façon contrôlée).
+-- admin/super_admin : clients + techniciens valides.
+-- technicien : admins + entreprises liées à une intervention active assignée.
+-- client : admins + techniciens affectés à une intervention active.
+CREATE OR REPLACE FUNCTION mes_contacts_messagerie()
+RETURNS TABLE (id uuid, nom text, prenom text, role text, email text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid  uuid := auth.uid();
+  v_role text := mon_role();
+BEGIN
+  IF v_role IN ('admin', 'super_admin') THEN
+    RETURN QUERY
+      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      FROM utilisateurs u
+      WHERE u.role IN ('client', 'technicien')
+        AND u.compte_valide = true AND u.est_actif = true;
+
+  ELSIF v_role = 'technicien' THEN
+    RETURN QUERY
+      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      FROM utilisateurs u
+      WHERE u.role IN ('admin', 'super_admin') AND u.est_actif = true;
+
+    RETURN QUERY
+      SELECT DISTINCT u.id, u.nom, u.prenom, u.role, u.email
+      FROM interventions i
+      JOIN interventions_techniciens it ON it.intervention_id = i.id
+      JOIN techniciens t ON t.id = it.technicien_id
+      JOIN clients c ON c.id = i.client_id
+      JOIN utilisateurs u ON u.id = c.utilisateur_id
+      WHERE t.utilisateur_id = v_uid
+        AND i.statut NOT IN ('signee', 'annulee');
+
+  ELSIF v_role = 'client' THEN
+    RETURN QUERY
+      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      FROM utilisateurs u
+      WHERE u.role IN ('admin', 'super_admin') AND u.est_actif = true;
+
+    RETURN QUERY
+      SELECT DISTINCT u.id, u.nom, u.prenom, u.role, u.email
+      FROM interventions i
+      JOIN clients c ON c.id = i.client_id
+      JOIN interventions_techniciens it ON it.intervention_id = i.id
+      JOIN techniciens t ON t.id = it.technicien_id
+      JOIN utilisateurs u ON u.id = t.utilisateur_id
+      WHERE c.utilisateur_id = v_uid
+        AND i.statut NOT IN ('signee', 'annulee');
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION mes_contacts_messagerie() TO authenticated;
+
 -- ----- utilisateurs -----
 CREATE POLICY "util_select" ON utilisateurs FOR SELECT USING (
   id = auth.uid() OR mon_role() IN ('admin', 'super_admin')

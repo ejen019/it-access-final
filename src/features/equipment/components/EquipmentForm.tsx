@@ -35,6 +35,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
     date_achat: equipment?.date_achat ?? '',
     fin_garantie: equipment?.fin_garantie ?? '',
     notes: equipment?.notes ?? '',
+    etat: equipment?.etat ?? 'operationnel',
   })
 
   const [photos, setPhotos] = useState<string[]>((equipment as any)?.photos ?? [])
@@ -43,6 +44,9 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
 
   const isEdit = !!equipment
   const isPending = createMutation.isPending || updateMutation.isPending
+  // Seul l'admin / super_admin peut fixer l'état (validation).
+  // Un client crée un équipement « en validation » (maintenance) par défaut.
+  const canEditEtat = profile?.role === 'admin' || profile?.role === 'super_admin'
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -92,6 +96,9 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
       notes: form.notes || undefined,
       photos,
       cree_par: profile!.id,
+      etat: canEditEtat
+        ? (form.etat as 'operationnel' | 'maintenance' | 'en_panne')
+        : (isEdit ? (equipment!.etat) : 'maintenance'),
     }
 
     try {
@@ -193,6 +200,21 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
           />
         </div>
       </div>
+
+      {canEditEtat && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground">État</label>
+          <select
+            value={form.etat}
+            onChange={(e) => update('etat', e.target.value)}
+            className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="operationnel">Opérationnel</option>
+            <option value="maintenance">En validation / maintenance</option>
+            <option value="en_panne">En panne</option>
+          </select>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Notes</label>

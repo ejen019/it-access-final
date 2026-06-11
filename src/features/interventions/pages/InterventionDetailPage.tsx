@@ -210,6 +210,8 @@ export function InterventionDetailPage() {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const role = profile?.role
+  // Un admin/super_admin peut aussi réaliser les actions d'un technicien.
+  const canIntervene = role === 'technicien' || role === 'admin' || role === 'super_admin'
 
   const { data: intervention, isLoading } = useDetailIntervention(id)
   const updateStatus = useChangerStatutIntervention()
@@ -432,8 +434,8 @@ export function InterventionDetailPage() {
         </div>
       </section>
 
-      {/* ——— Section Technicien ——— */}
-      {role === 'technicien' && (
+      {/* ——— Section Technicien (aussi accessible à l'admin) ——— */}
+      {canIntervene && (
         <>
           {/* Démarrer */}
           {statut === 'planifiee' && (
@@ -658,20 +660,9 @@ export function InterventionDetailPage() {
       )}
 
       {/* ——— Actions Admin ——— */}
-      {role === 'admin' && (
+      {(role === 'admin' || role === 'super_admin') && (
         <section className="bg-card border border-border rounded-xl p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Actions admin</h2>
-
-          {/* Rapport (lecture seule) */}
-          {rapport?.compte_rendu && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase">Rapport technicien</p>
-              <p className="text-sm text-foreground">{rapport.compte_rendu}</p>
-              {rapport.pieces_remplacees && (
-                <p className="text-xs text-muted-foreground mt-1">Pièces : {rapport.pieces_remplacees}</p>
-              )}
-            </div>
-          )}
 
           {statut !== 'signee' && statut !== 'annulee' && (
             <button

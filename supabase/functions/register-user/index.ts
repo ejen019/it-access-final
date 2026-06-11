@@ -16,6 +16,17 @@ interface RegisterPayload {
   ville?: string
   secteur?: string
   specialite?: string
+  selected_plan?: 'starter' | 'medium' | 'premium'
+}
+
+// Code de signature : chaîne alphanumérique (maj + min + chiffres), 8 caractères.
+function genererCodeSignature(longueur = 8): string {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  let code = ''
+  for (let i = 0; i < longueur; i++) {
+    code += charset[Math.floor(Math.random() * charset.length)]
+  }
+  return code
 }
 
 Deno.serve(async (req) => {
@@ -25,7 +36,7 @@ Deno.serve(async (req) => {
 
   try {
     const payload: RegisterPayload = await req.json()
-    const { email, password, nom, prenom, telephone, role, nom_entreprise, ville, secteur, specialite } = payload
+    const { email, password, nom, prenom, telephone, role, nom_entreprise, ville, secteur, specialite, selected_plan } = payload
 
     if (!email || !password || !nom || !role) {
       return json({ error: 'Champs obligatoires manquants: email, password, nom, role' }, 400)
@@ -37,19 +48,28 @@ Deno.serve(async (req) => {
       return json({ error: 'nom_entreprise est obligatoire pour le rôle client' }, 400)
     }
 
+    // Client service_role : inserts métier (bypass RLS) + rollback éventuel.
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Client public (anon) : signUp envoie l'email de confirmation Supabase
+    // si la confirmation d'email est activée dans le projet ; sinon le compte
+    // est auto-confirmé. Dans tous les cas l'accès reste bloqué par compte_valide.
+    const supabasePublic = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data: authData, error: authError } = await supabasePublic.auth.signUp({
       email,
       password,
-      email_confirm: true,
     })
-    if (authError) {
-      return json({ error: authError.message }, 400)
+    if (authError || !authData.user) {
+      return json({ error: authError?.message ?? "Échec de la création du compte" }, 400)
     }
 
     const userId = authData.user.id
@@ -72,8 +92,8 @@ Deno.serve(async (req) => {
     }
 
     if (role === 'client') {
-      const code_signature = Math.floor(100000 + Math.random() * 900000).toString()
-      const { error: clientErr } = await supabaseAdmin
+      const code_signature = genererCodeSignature()
+      const { data: clientRow, error: clientErr } = await supabaseAdmin
         .from('clients')
         .insert({
           utilisateur_id: userId,
@@ -82,9 +102,35 @@ Deno.serve(async (req) => {
           secteur: secteur ?? null,
           code_signature,
         })
-      if (clientErr) {
+        .select('id')
+        .single()
+      if (clientErr || !clientRow) {
         await supabaseAdmin.auth.admin.deleteUser(userId)
-        return json({ error: clientErr.message }, 500)
+        return json({ error: clientErr?.message ?? 'Création client échouée' }, 500)
+      }
+
+      // Création automatique du contrat selon la formule choisie.
+      // L'abonnement choisi est récupéré dans la table abonnements.
+      const plan = selected_plan ?? 'starter'
+      const { data: abo } = await supabaseAdmin
+        .from('abonnements')
+        .select('id')
+        .eq('plan', plan)
+        .maybeSingle()
+
+      if (abo) {
+        const debut = new Date()
+        const fin = new Date()
+        fin.setFullYear(fin.getFullYear() + 1)
+        await supabaseAdmin.from('contrats').insert({
+          client_id: clientRow.id,
+          abonnement_id: abo.id,
+          date_debut: debut.toISOString().split('T')[0],
+          date_fin: fin.toISOString().split('T')[0],
+          nbr_equip_actuel: 0,
+          nbr_techniciens_actuel: 0,
+          est_actif: true,
+        })
       }
     } else if (role === 'technicien') {
       const { error: techErr } = await supabaseAdmin

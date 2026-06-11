@@ -110,6 +110,7 @@ function CreateModal({ onClose }: CreateModalProps) {
   const [titre, setTitre] = useState('')
   const [description, setDescription] = useState('')
   const [urgence, setUrgence] = useState<NiveauUrgence>('moyenne')
+  const [typePlanification, setTypePlanification] = useState<'reparation' | 'periodique'>('reparation')
   const [selectedEquipements, setSelectedEquipements] = useState<string[]>([])
   const [selectedTechs, setSelectedTechs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -153,6 +154,7 @@ function CreateModal({ onClose }: CreateModalProps) {
       urgence,
       technicien_ids: selectedTechs,
       cree_par: profile!.id,
+      type_planification: typePlanification,
     }
     try {
       await createMutation.mutateAsync(input)
@@ -163,9 +165,9 @@ function CreateModal({ onClose }: CreateModalProps) {
   }
 
   const urgencyConfig = [
-    { value: 'faible' as NiveauUrgence,   label: 'Faible',   from: 'from-slate-400',  to: 'to-slate-500' },
-    { value: 'moyenne' as NiveauUrgence,  label: 'Moyenne',  from: 'from-amber-400',  to: 'to-orange-500' },
-    { value: 'critique' as NiveauUrgence, label: 'Critique', from: 'from-red-400',    to: 'to-rose-600' },
+    { value: 'faible' as NiveauUrgence,   label: 'Faible',   solid: 'bg-slate-500' },
+    { value: 'moyenne' as NiveauUrgence,  label: 'Moyenne',  solid: 'bg-amber-500' },
+    { value: 'critique' as NiveauUrgence, label: 'Critique', solid: 'bg-red-500' },
   ]
 
   return (
@@ -223,6 +225,29 @@ function CreateModal({ onClose }: CreateModalProps) {
           </div>
 
           <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Type de planification</label>
+            <div className="flex gap-2">
+              {([
+                { value: 'reparation' as const, label: 'Réparation' },
+                { value: 'periodique' as const, label: 'Périodique' },
+              ]).map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setTypePlanification(t.value)}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors border ${
+                    typePlanification === t.value
+                      ? 'bg-primary/10 border-primary text-primary'
+                      : 'border-border text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Niveau d'urgence</label>
             <div className="flex gap-2">
               {urgencyConfig.map((u) => (
@@ -230,9 +255,9 @@ function CreateModal({ onClose }: CreateModalProps) {
                   key={u.value}
                   type="button"
                   onClick={() => setUrgence(u.value)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors border ${
                     urgence === u.value
-                      ? `bg-gradient-to-br ${u.from} ${u.to} text-white border-transparent shadow-sm`
+                      ? `${u.solid} text-white border-transparent`
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >

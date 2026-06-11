@@ -4,12 +4,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, Monitor, Trash2, QrCode, Upload } from 'lucide-react'
+import { Plus, Search, Monitor, Trash2, QrCode, Upload, Pencil, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useTousEquipements, useSupprimerEquipement } from '../hooks/useEquipment'
+import { useTousEquipements, useSupprimerEquipement, useModifierEquipement } from '../hooks/useEquipment'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { BulkImportModal } from '../components/BulkImportModal'
 import { printQRCode } from '@/lib/utils/qrcode'
+import type { Equipement } from '@/types'
 
 async function fetchClients() {
   const { data, error } = await supabase.from('clients').select('id, nom_entreprise')
@@ -32,6 +33,7 @@ export function EquipmentAdminPage() {
   const [filterEtat, setFilterEtat] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [createClientId, setCreateClientId] = useState('')
+  const [editTarget, setEditTarget] = useState<Equipement | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; clientId: string; nom: string } | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [importClientId, setImportClientId] = useState('')
@@ -43,6 +45,7 @@ export function EquipmentAdminPage() {
     queryFn: fetchClients,
   })
   const deleteMutation = useSupprimerEquipement()
+  const updateMutation = useModifierEquipement()
 
   const filtered = (equipment as any[]).filter((e) => {
     const matchSearch = e.nom.toLowerCase().includes(search.toLowerCase())
@@ -174,6 +177,22 @@ export function EquipmentAdminPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
+                        {e.etat === 'maintenance' && (
+                          <button
+                            onClick={() => updateMutation.mutate({ id: e.id, updates: { etat: 'operationnel' } })}
+                            title="Valider (rendre opérationnel)"
+                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditTarget(e as Equipement)}
+                          title="Modifier"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
                         <button
                           onClick={() => printQRCode(e.id, e.nom)}
                           title="Imprimer QR Code"
@@ -280,6 +299,26 @@ export function EquipmentAdminPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal édition équipement */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-5 pt-5 pb-3 border-b border-border">
+              <h2 className="font-semibold text-foreground">Modifier l'équipement</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{(editTarget as any).clients?.nom_entreprise ?? ''}</p>
+            </div>
+            <div className="p-5">
+              <EquipmentForm
+                clientId={editTarget.client_id}
+                equipment={editTarget}
+                onSuccess={() => setEditTarget(null)}
+                onCancel={() => setEditTarget(null)}
+              />
+            </div>
           </div>
         </div>
       )}

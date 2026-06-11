@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  CheckCircle2, XCircle, Trash2, UserPlus,
+  CheckCircle2, XCircle, Trash2,
   Search, Building2, Wrench, Clock,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
@@ -35,15 +35,10 @@ async function fetchUtilisateurs(tab: Tab) {
   }
   const { data, error } = await supabase
     .from('utilisateurs')
-    .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, techniciens(id, specialite, affectations(id, client_id))')
+    .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, techniciens(id, specialite)')
     .eq('role', 'technicien')
     .order('cree_le', { ascending: false })
   if (error) throw error
-  return data ?? []
-}
-
-async function fetchClientsForAssignment() {
-  const { data } = await supabase.from('clients').select('id, nom_entreprise')
   return data ?? []
 }
 
@@ -74,16 +69,6 @@ async function deleteUser(userId: string) {
   if (data?.error) throw new Error(data.error)
 }
 
-async function assignTechnician(techUserId: string, clientId: string, assignedBy: string) {
-  const { data: tech } = await supabase
-    .from('techniciens').select('id').eq('utilisateur_id', techUserId).single()
-  if (!tech) throw new Error('Technicien introuvable')
-  await supabase.from('affectations').upsert(
-    { technicien_id: tech.id, client_id: clientId, affecte_par: assignedBy },
-    { onConflict: 'technicien_id,client_id' }
-  )
-}
-
 function Badge({ label, variant }: { label: string; variant: 'success' | 'warning' | 'danger' }) {
   const cls = {
     success: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -97,55 +82,11 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
   )
 }
 
-function AssignModal({ techUserId, onClose }: { techUserId: string; onClose: () => void }) {
-  const { profile } = useAuthStore()
-  const queryClient = useQueryClient()
-  const [selectedClient, setSelectedClient] = useState('')
-  const { data: clients = [] } = useQuery({
-    queryKey: ['clients-for-assignment'],
-    queryFn: fetchClientsForAssignment,
-  })
-  const { mutate, isPending } = useMutation({
-    mutationFn: () => assignTechnician(techUserId, selectedClient, profile!.id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); onClose() },
-  })
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
-        <h3 className="font-semibold text-foreground">Affecter à une entreprise</h3>
-        <select
-          value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
-          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Choisir une entreprise…</option>
-          {(clients as any[]).map((c) => (
-            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
-          ))}
-        </select>
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors">
-            Annuler
-          </button>
-          <button
-            onClick={() => mutate()}
-            disabled={!selectedClient || isPending}
-            className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
-          >
-            Affecter
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function UsersPage() {
   const { profile: me } = useAuthStore()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('pending')
   const [search, setSearch] = useState('')
-  const [assignTarget, setAssignTarget] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const { data: users = [], isLoading, error } = useQuery({
@@ -244,10 +185,8 @@ export function UsersPage() {
                         {user.clients?.nom_entreprise ?? `${user.prenom ?? ''} ${user.nom}`.trim()}
                       </p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
-                      {tab === 'technicians' && (user.techniciens?.affectations?.length ?? 0) > 0 && (
-                        <p className="text-xs text-primary mt-0.5">
-                          {user.techniciens.affectations.length} entreprise{user.techniciens.affectations.length > 1 ? 's' : ''}
-                        </p>
+                      {tab === 'technicians' && user.techniciens?.specialite && (
+                        <p className="text-xs text-primary mt-0.5">{user.techniciens.specialite}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
@@ -274,12 +213,6 @@ export function UsersPage() {
                             <CheckCircle2 size={16} />
                           </button>
                         )}
-                        {tab === 'technicians' && user.compte_valide && (
-                          <button onClick={() => setAssignTarget(user.id)} title="Affecter"
-                            className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors">
-                            <UserPlus size={16} />
-                          </button>
-                        )}
                         <button onClick={() => doToggle({ id: user.id, active: user.est_actif })} title={user.est_actif ? 'Désactiver' : 'Réactiver'}
                           className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
                           <XCircle size={16} />
@@ -299,10 +232,6 @@ export function UsersPage() {
           </div>
         )}
       </div>
-
-      {assignTarget && (
-        <AssignModal techUserId={assignTarget} onClose={() => setAssignTarget(null)} />
-      )}
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">

@@ -3,9 +3,12 @@
 //
 // Conversation 1-to-1. conversation_id = sorted UUIDs joined by "|".
 // Admin voit tous les contacts. Tech/Client voient les admins.
+//
+// Fonctions : accusés de lecture (colonne `lu`), ticks façon WhatsApp,
+// présence en ligne (points verts), compteur de messages non lus.
 // =============================================================
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, MessageCircle, Loader2, ArrowLeft, CornerUpLeft, X } from 'lucide-react'
+import { Send, MessageCircle, Loader2, ArrowLeft, CornerUpLeft, X, Check, CheckCheck } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 
@@ -24,7 +27,8 @@ interface ChatMessage {
   conversation_id: string
   expediteur_id: string
   contenu: string
-  repondre_a_id: string | null
+  reponse_a_id: string | null
+  lu: boolean
   cree_le: string
 }
 
@@ -56,6 +60,33 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin', super_admin: 'Super Admin', client: 'Entreprise', technicien: 'Technicien',
 }
 
+const MESSAGE_COLS = 'id, conversation_id, expediteur_id, contenu, reponse_a_id, lu, cree_le'
+
+// ----- Présence (statut en ligne) -----
+
+function useOnlineUsers(myId: string | undefined): Set<string> {
+  const [online, setOnline] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!myId) return
+    const channel = supabase.channel('presence:online', {
+      config: { presence: { key: myId } },
+    })
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        setOnline(new Set(Object.keys(channel.presenceState())))
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() })
+        }
+      })
+    return () => { supabase.removeChannel(channel) }
+  }, [myId])
+
+  return online
+}
+
 // ----- Requêtes -----
 
 async function fetchContacts(role: string): Promise<Contact[]> {
@@ -81,10 +112,35 @@ async function fetchContacts(role: string): Promise<Contact[]> {
 async function fetchConversationMessages(conversationId: string): Promise<ChatMessage[]> {
   const { data } = await supabase
     .from('messages')
-    .select('id, conversation_id, expediteur_id, contenu, repondre_a_id, cree_le')
+    .select(MESSAGE_COLS)
     .eq('conversation_id', conversationId)
     .order('cree_le', { ascending: true })
   return (data ?? []) as ChatMessage[]
+}
+
+// Compte les messages non lus reçus, regroupés par expéditeur
+async function fetchUnreadCounts(myId: string): Promise<Record<string, number>> {
+  const { data } = await supabase
+    .from('messages')
+    .select('expediteur_id, conversation_id')
+    .eq('lu', false)
+    .neq('expediteur_id', myId)
+    .like('conversation_id', `%${myId}%`)
+  const counts: Record<string, number> = {}
+  for (const m of (data ?? []) as { expediteur_id: string }[]) {
+    counts[m.expediteur_id] = (counts[m.expediteur_id] ?? 0) + 1
+  }
+  return counts
+}
+
+// Marque comme lus tous les messages reçus de la conversation
+async function markConversationRead(conversationId: string, myId: string) {
+  await supabase
+    .from('messages')
+    .update({ lu: true })
+    .eq('conversation_id', conversationId)
+    .neq('expediteur_id', myId)
+    .eq('lu', false)
 }
 
 async function sendMessage(params: {
@@ -97,7 +153,7 @@ async function sendMessage(params: {
     conversation_id: params.conversationId,
     expediteur_id: params.senderId,
     contenu: params.content.trim(),
-    repondre_a_id: params.replyToId,
+    reponse_a_id: params.replyToId,
   })
   if (error) throw error
 }
@@ -107,37 +163,76 @@ async function sendMessage(params: {
 function ContactList({
   contacts,
   selectedId,
+  onlineIds,
+  unreadCounts,
   onSelect,
 }: {
   contacts: Contact[]
   selectedId: string | null
-  myId: string
+  onlineIds: Set<string>
+  unreadCounts: Record<string, number>
   onSelect: (contact: Contact) => void
 }) {
+  // Contacts avec messages non lus d'abord
+  const sorted = [...contacts].sort((a, b) => (unreadCounts[b.id] ?? 0) - (unreadCounts[a.id] ?? 0))
+
   return (
     <div className="divide-y divide-border">
       {contacts.length === 0 && (
         <p className="p-6 text-center text-sm text-muted-foreground">Aucun contact disponible</p>
       )}
-      {contacts.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => onSelect(c)}
-          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-accent border-l-2 ${
-            selectedId === c.id ? 'bg-accent border-primary' : 'border-transparent'
-          }`}
-        >
-          <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-bold text-white">{c.nom.charAt(0).toUpperCase()}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{displayName(c)}</p>
-            <p className="text-xs text-muted-foreground">{ROLE_LABEL[c.role]}</p>
-          </div>
-        </button>
-      ))}
+      {sorted.map((c) => {
+        const unread = unreadCounts[c.id] ?? 0
+        const isOnline = onlineIds.has(c.id)
+        return (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c)}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-accent border-l-2 ${
+              selectedId === c.id ? 'bg-accent border-primary' : 'border-transparent'
+            }`}
+          >
+            <div className="relative flex-shrink-0">
+              <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center">
+                <span className="text-sm font-bold text-white">{c.nom.charAt(0).toUpperCase()}</span>
+              </div>
+              {isOnline && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-card" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>
+                {displayName(c)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isOnline ? <span className="text-emerald-600 dark:text-emerald-400">En ligne</span> : ROLE_LABEL[c.role]}
+              </p>
+            </div>
+            {unread > 0 && (
+              <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full flex-shrink-0">
+                {unread}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
+}
+
+// ----- Indicateur de lecture (ticks WhatsApp) -----
+
+function ReadTicks({ read, online }: { read: boolean; online: boolean }) {
+  if (read) {
+    // Lu → double trait bleu
+    return <CheckCheck size={14} className="text-sky-300" />
+  }
+  if (online) {
+    // Destinataire en ligne (délivré) → double trait
+    return <CheckCheck size={14} className="text-white/60" />
+  }
+  // Hors ligne → simple trait
+  return <Check size={14} className="text-white/60" />
 }
 
 // ----- Composant chat -----
@@ -145,12 +240,15 @@ function ContactList({
 function ChatView({
   contact,
   myId,
+  isOnline,
   onBack,
+  onReadChange,
 }: {
   contact: Contact
   myId: string
-  myName: string
+  isOnline: boolean
   onBack: () => void
+  onReadChange: () => void
 }) {
   const conversationId = getConversationId(myId, contact.id)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -165,39 +263,48 @@ function ChatView({
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }, [])
 
+  // Marque la conversation comme lue puis prévient le parent
+  const markRead = useCallback(async () => {
+    await markConversationRead(conversationId, myId)
+    onReadChange()
+  }, [conversationId, myId, onReadChange])
+
   useEffect(() => {
     setLoading(true)
     fetchConversationMessages(conversationId).then((msgs) => {
       setMessages(msgs)
       setLoading(false)
       scrollToBottom()
+      markRead()
     })
-  }, [conversationId, scrollToBottom])
+  }, [conversationId, scrollToBottom, markRead])
 
   useEffect(() => {
     const channel = supabase
       .channel(`conv:${conversationId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const newMsg = payload.new as ChatMessage
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev
-            return [...prev, newMsg]
-          })
+          setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]))
           scrollToBottom()
+          // Message reçu pendant que la conversation est ouverte → marquer lu
+          if (newMsg.expediteur_id !== myId) markRead()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const upd = payload.new as ChatMessage
+          setMessages((prev) => prev.map((m) => (m.id === upd.id ? { ...m, lu: upd.lu } : m)))
         }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [conversationId, scrollToBottom])
+  }, [conversationId, scrollToBottom, markRead, myId])
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
@@ -237,11 +344,8 @@ function ChatView({
   for (const msg of messages) {
     const day = formatDay(msg.cree_le)
     const last = grouped[grouped.length - 1]
-    if (last && last.day === day) {
-      last.msgs.push(msg)
-    } else {
-      grouped.push({ day, msgs: [msg] })
-    }
+    if (last && last.day === day) last.msgs.push(msg)
+    else grouped.push({ day, msgs: [msg] })
   }
 
   function getReplyPreview(replyToId: string | null): string {
@@ -256,12 +360,21 @@ function ChatView({
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-accent md:hidden">
           <ArrowLeft size={18} className="text-muted-foreground" />
         </button>
-        <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-bold text-white">{contact.nom.charAt(0).toUpperCase()}</span>
+        <div className="relative flex-shrink-0">
+          <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center">
+            <span className="text-sm font-bold text-white">{contact.nom.charAt(0).toUpperCase()}</span>
+          </div>
+          {isOnline && (
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-card" />
+          )}
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">{displayName(contact)}</p>
-          <p className="text-xs text-muted-foreground">{ROLE_LABEL[contact.role]}</p>
+          <p className="text-xs">
+            {isOnline
+              ? <span className="text-emerald-600 dark:text-emerald-400">En ligne</span>
+              : <span className="text-muted-foreground">{ROLE_LABEL[contact.role]}</span>}
+          </p>
         </div>
       </div>
 
@@ -295,15 +408,18 @@ function ChatView({
                         ? 'gradient-primary text-white rounded-br-sm shadow-sm'
                         : 'bg-muted text-foreground rounded-bl-sm'
                     }`}>
-                      {msg.repondre_a_id && (
+                      {msg.reponse_a_id && (
                         <div className={`text-xs opacity-70 border-l-2 pl-2 ${isMine ? 'border-white/50' : 'border-primary/50'}`}>
-                          {getReplyPreview(msg.repondre_a_id)}
+                          {getReplyPreview(msg.reponse_a_id)}
                         </div>
                       )}
                       <p className="text-sm leading-relaxed">{msg.contenu}</p>
-                      <p className={`text-xs ${isMine ? 'text-white/60' : 'text-muted-foreground'} text-right`}>
-                        {formatTime(msg.cree_le)}
-                      </p>
+                      <div className={`flex items-center gap-1 ${isMine ? 'justify-end' : 'justify-end'}`}>
+                        <span className={`text-xs ${isMine ? 'text-white/60' : 'text-muted-foreground'}`}>
+                          {formatTime(msg.cree_le)}
+                        </span>
+                        {isMine && <ReadTicks read={msg.lu} online={isOnline} />}
+                      </div>
                     </div>
                   </div>
                 )
@@ -358,6 +474,14 @@ export function MessagingPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+
+  const onlineIds = useOnlineUsers(profile?.id)
+
+  const refreshUnread = useCallback(() => {
+    if (!profile) return
+    fetchUnreadCounts(profile.id).then(setUnreadCounts)
+  }, [profile?.id])
 
   useEffect(() => {
     if (!profile) return
@@ -365,11 +489,29 @@ export function MessagingPage() {
       setContacts(c)
       setLoading(false)
     })
-  }, [profile?.id])
+    refreshUnread()
+  }, [profile?.id, refreshUnread])
+
+  // Met à jour le compteur global de non-lus en temps réel
+  useEffect(() => {
+    if (!profile) return
+    const channel = supabase
+      .channel(`messages:inbox:${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as { conversation_id?: string }
+          if (row?.conversation_id?.includes(profile.id)) refreshUnread()
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, refreshUnread])
 
   if (!profile) return null
 
-  const myDisplayName = `${profile.prenom ?? ''} ${profile.nom}`.trim()
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0)
 
   return (
     <div className="h-[calc(100vh-7.5rem)] md:h-[calc(100vh-6.5rem)] flex overflow-hidden rounded-xl border border-border">
@@ -378,7 +520,14 @@ export function MessagingPage() {
         ${selectedContact ? 'hidden md:flex' : 'flex'}
       `}>
         <div className="px-4 py-4 border-b border-border">
-          <h1 className="text-lg font-bold text-foreground">Messages</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold text-foreground">Messages</h1>
+            {totalUnread > 0 && (
+              <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full">
+                {totalUnread}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {contacts.length} contact{contacts.length > 1 ? 's' : ''}
           </p>
@@ -392,7 +541,8 @@ export function MessagingPage() {
             <ContactList
               contacts={contacts}
               selectedId={selectedContact?.id ?? null}
-              myId={profile.id}
+              onlineIds={onlineIds}
+              unreadCounts={unreadCounts}
               onSelect={setSelectedContact}
             />
           )}
@@ -402,10 +552,12 @@ export function MessagingPage() {
       <div className={`flex-1 flex flex-col min-w-0 ${!selectedContact ? 'hidden md:flex' : 'flex'}`}>
         {selectedContact ? (
           <ChatView
+            key={selectedContact.id}
             contact={selectedContact}
             myId={profile.id}
-            myName={myDisplayName}
+            isOnline={onlineIds.has(selectedContact.id)}
             onBack={() => setSelectedContact(null)}
+            onReadChange={refreshUnread}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">

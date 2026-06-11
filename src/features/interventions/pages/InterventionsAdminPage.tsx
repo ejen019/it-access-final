@@ -43,6 +43,14 @@ const URGENCY_CLASS: Record<string, string> = {
   critique: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  reparation: 'Réparation', periodique: 'Périodique',
+}
+const TYPE_CLASS: Record<string, string> = {
+  reparation: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  periodique: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+}
+
 const URGENCY_ROW_ACCENT: Record<string, string> = {
   faible: '',
   moyenne: '',
@@ -71,29 +79,20 @@ async function fetchClientEquipements(clientId: string) {
   return data ?? []
 }
 
-async function fetchClientTechniciens(clientId: string) {
-  const { data: affectations, error } = await supabase
-    .from('affectations')
-    .select('technicien_id, techniciens(utilisateur_id)')
-    .eq('client_id', clientId)
+// Tous les techniciens actifs — l'affectation se fait à la planification (plus de lien entreprise↔technicien)
+async function fetchAllTechniciens() {
+  const { data, error } = await supabase
+    .from('techniciens')
+    .select('id, utilisateur_id, specialite, utilisateurs(nom, prenom, est_actif, compte_valide)')
   if (error) throw error
-
-  const entries = (affectations ?? [])
-    .map((a: any) => ({ techId: a.technicien_id, userId: a.techniciens?.utilisateur_id as string }))
-    .filter((e) => e.userId)
-
-  if (!entries.length) return []
-
-  const userIds = entries.map((e) => e.userId)
-  const { data: users } = await supabase
-    .from('utilisateurs')
-    .select('id, nom, prenom')
-    .in('id', userIds)
-
-  const nameMap = Object.fromEntries(
-    (users ?? []).map((u: any) => [u.id, `${u.prenom} ${u.nom}`.trim()])
-  )
-  return entries.map((e) => ({ techId: e.techId, userId: e.userId, name: nameMap[e.userId] ?? 'Technicien' }))
+  return (data ?? [])
+    .filter((t: any) => t.utilisateurs?.est_actif !== false && t.utilisateurs?.compte_valide !== false)
+    .map((t: any) => ({
+      techId: t.id,
+      userId: t.utilisateur_id,
+      name: `${t.utilisateurs?.prenom ?? ''} ${t.utilisateurs?.nom ?? ''}`.trim() || 'Technicien',
+      specialite: t.specialite as string | null,
+    }))
 }
 
 // ----- Composant modal création -----
@@ -111,6 +110,7 @@ function CreateModal({ onClose }: CreateModalProps) {
   const [description, setDescription] = useState('')
   const [urgence, setUrgence] = useState<NiveauUrgence>('moyenne')
   const [typePlanification, setTypePlanification] = useState<'reparation' | 'periodique'>('reparation')
+  const [planifieLe, setPlanifieLe] = useState('')
   const [selectedEquipements, setSelectedEquipements] = useState<string[]>([])
   const [selectedTechs, setSelectedTechs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -122,9 +122,8 @@ function CreateModal({ onClose }: CreateModalProps) {
     enabled: !!clientId,
   })
   const { data: techniciens = [] } = useQuery({
-    queryKey: ['client-techs', clientId],
-    queryFn: () => fetchClientTechniciens(clientId),
-    enabled: !!clientId,
+    queryKey: ['all-techs'],
+    queryFn: fetchAllTechniciens,
   })
 
   function toggleEquipement(id: string) {
@@ -155,6 +154,7 @@ function CreateModal({ onClose }: CreateModalProps) {
       technicien_ids: selectedTechs,
       cree_par: profile!.id,
       type_planification: typePlanification,
+      planifie_le: typePlanification === 'periodique' && planifieLe ? new Date(planifieLe).toISOString() : undefined,
     }
     try {
       await createMutation.mutateAsync(input)
@@ -247,6 +247,18 @@ function CreateModal({ onClose }: CreateModalProps) {
             </div>
           </div>
 
+          {typePlanification === 'periodique' && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Date de planification</label>
+              <input
+                type="datetime-local"
+                value={planifieLe}
+                onChange={(e) => setPlanifieLe(e.target.value)}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Niveau d'urgence</label>
             <div className="flex gap-2">
@@ -289,10 +301,19 @@ function CreateModal({ onClose }: CreateModalProps) {
             </div>
           )}
 
-          {clientId && (techniciens as any[]).length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Affecter des techniciens</label>
-              <div className="space-y-1 border border-border rounded-lg p-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Affecter des techniciens
+              {selectedTechs.length > 0 && (
+                <span className="ml-1.5 text-xs text-primary font-normal">({selectedTechs.length} sélectionné{selectedTechs.length > 1 ? 's' : ''})</span>
+              )}
+            </label>
+            {(techniciens as any[]).length === 0 ? (
+              <p className="text-xs text-muted-foreground border border-dashed border-border rounded-lg p-3 text-center">
+                Aucun technicien actif disponible.
+              </p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
                 {(techniciens as any[]).map((t) => (
                   <label key={t.techId} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded-lg p-1.5">
                     <input
@@ -302,11 +323,12 @@ function CreateModal({ onClose }: CreateModalProps) {
                       className="rounded"
                     />
                     <span className="text-foreground">{t.name}</span>
+                    {t.specialite && <span className="text-muted-foreground text-xs">· {t.specialite}</span>}
                   </label>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="flex gap-3 pt-1">
             <button
@@ -334,6 +356,7 @@ function CreateModal({ onClose }: CreateModalProps) {
 
 export function InterventionsAdminPage() {
   const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'reparation' | 'periodique'>('all')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterUrgency, setFilterUrgency] = useState('')
   const [filterClient, setFilterClient] = useState('')
@@ -351,7 +374,9 @@ export function InterventionsAdminPage() {
     const matchStatus = !filterStatus || i.statut === filterStatus
     const matchUrgency = !filterUrgency || i.urgence === filterUrgency
     const matchClient = !filterClient || i.client_id === filterClient
-    return matchSearch && matchStatus && matchUrgency && matchClient
+    const type = i.type_planification ?? 'reparation'
+    const matchType = filterType === 'all' || type === filterType
+    return matchSearch && matchStatus && matchUrgency && matchClient && matchType
   })
 
   const stats = {
@@ -361,7 +386,15 @@ export function InterventionsAdminPage() {
     terminee: interventions.filter((i: any) => i.statut === 'terminee').length,
     signee: interventions.filter((i: any) => i.statut === 'signee').length,
     critiques: interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut)).length,
+    reparations: interventions.filter((i: any) => (i.type_planification ?? 'reparation') === 'reparation' && i.statut !== 'annulee').length,
+    periodiques: interventions.filter((i: any) => i.type_planification === 'periodique' && i.statut !== 'annulee').length,
   }
+
+  const TYPE_TABS = [
+    { id: 'all' as const, label: 'Toutes', count: stats.total },
+    { id: 'reparation' as const, label: 'Réparations', count: stats.reparations },
+    { id: 'periodique' as const, label: 'Périodiques', count: stats.periodiques },
+  ]
 
   return (
     <div className="space-y-6 page-transition">
@@ -403,9 +436,27 @@ export function InterventionsAdminPage() {
         ))}
       </div>
 
+      {/* Onglets type de planification */}
+      <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+        {TYPE_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setFilterType(t.id)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+              filterType === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filterType === t.id ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
+              {t.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Filtres */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="relative sm:col-span-2 lg:col-span-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -418,7 +469,7 @@ export function InterventionsAdminPage() {
         <select
           value={filterClient}
           onChange={(e) => setFilterClient(e.target.value)}
-          className="px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Toutes les entreprises</option>
           {(clients as any[]).map((c) => (
@@ -428,7 +479,7 @@ export function InterventionsAdminPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Tous les statuts</option>
           <option value="planifiee">Planifiée</option>
@@ -440,7 +491,7 @@ export function InterventionsAdminPage() {
         <select
           value={filterUrgency}
           onChange={(e) => setFilterUrgency(e.target.value)}
-          className="px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Toutes urgences</option>
           <option value="faible">Faible</option>
@@ -469,6 +520,7 @@ export function InterventionsAdminPage() {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Titre</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Entreprise</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Urgence</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Statut</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Date</th>
@@ -493,6 +545,11 @@ export function InterventionsAdminPage() {
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <p className="text-sm text-muted-foreground">{i.clients?.nom_entreprise ?? '—'}</p>
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_CLASS[i.type_planification ?? 'reparation'] ?? ''}`}>
+                        {TYPE_LABEL[i.type_planification ?? 'reparation']}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[i.urgence] ?? ''}`}>

@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, Link } from 'react-router-dom'
 import { LayoutDashboard, Monitor, Wrench, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { NotificationBell } from '@/components/shared/NotificationBell'
@@ -18,12 +18,9 @@ export function EntrepriseLayout() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-bold text-white leading-none">IT</span>
-          </div>
-          <span className="text-[13px] font-semibold text-foreground">IT-Access</span>
-        </div>
+        <Link to="/entreprise/dashboard" className="flex items-center gap-2">
+          <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
+        </Link>
         <div className="flex items-center gap-2">
           <NotificationBell />
           <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-sm font-semibold">

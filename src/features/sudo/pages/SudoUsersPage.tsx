@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  CheckCircle2, XCircle, Trash2, UserPlus,
+  CheckCircle2, XCircle, Trash2,
   Search, Building2, Wrench, Clock, Shield, RefreshCw,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
@@ -58,10 +58,6 @@ async function fetchUsers(tab: Tab) {
   return data ?? []
 }
 
-async function fetchClientsForAssignment() {
-  const { data } = await supabase.from('clients').select('id, nom_entreprise').order('nom_entreprise')
-  return data ?? []
-}
 
 async function validateUser(userId: string) {
   const { error } = await supabase
@@ -98,17 +94,6 @@ async function deleteUser(userId: string) {
   if (data?.error) throw new Error(data.error)
 }
 
-async function assignTechnician(techUserId: string, clientId: string, assignedBy: string) {
-  const { data: tech } = await supabase
-    .from('techniciens').select('id').eq('utilisateur_id', techUserId).single()
-  if (!tech) throw new Error('Technicien introuvable')
-  const { error } = await supabase.from('affectations').upsert(
-    { technicien_id: tech.id, client_id: clientId, affecte_par: assignedBy },
-    { onConflict: 'technicien_id,client_id' }
-  )
-  if (error) throw error
-}
-
 // ----- UI -----
 
 function Badge({ label, variant }: { label: string; variant: 'success' | 'warning' | 'danger' | 'info' }) {
@@ -125,51 +110,6 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
   )
 }
 
-function AssignModal({ techUserId, onClose, assignedBy }: { techUserId: string; onClose: () => void; assignedBy: string }) {
-  const queryClient = useQueryClient()
-  const [selectedClient, setSelectedClient] = useState('')
-  const { data: clients = [] } = useQuery({
-    queryKey: ['clients-for-assignment'],
-    queryFn: fetchClientsForAssignment,
-  })
-  const { mutate, isPending } = useMutation({
-    mutationFn: () => assignTechnician(techUserId, selectedClient, assignedBy),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sudo-users'] })
-      onClose()
-    },
-  })
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4">
-        <h3 className="font-semibold text-foreground">Affecter à une entreprise</h3>
-        <select
-          value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
-          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Choisir une entreprise…</option>
-          {(clients as any[]).map((c) => (
-            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
-          ))}
-        </select>
-        <div className="flex gap-3">
-          <button onClick={onClose}
-            className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors">
-            Annuler
-          </button>
-          <button
-            onClick={() => mutate()}
-            disabled={!selectedClient || isPending}
-            className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
-            Affecter
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ----- Page -----
 
 export function SudoUsersPage() {
@@ -183,7 +123,6 @@ export function SudoUsersPage() {
       : 'pending'
   )
   const [search, setSearch] = useState('')
-  const [assignTarget, setAssignTarget] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const { data: users = [], isLoading, error, refetch } = useQuery({
@@ -323,12 +262,6 @@ export function SudoUsersPage() {
                             <CheckCircle2 size={16} />
                           </button>
                         )}
-                        {tab === 'technicians' && user.compte_valide && (
-                          <button onClick={() => setAssignTarget(user.id)} title="Affecter"
-                            className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors">
-                            <UserPlus size={16} />
-                          </button>
-                        )}
                         {user.role !== 'super_admin' && (
                           <button
                             onClick={() => doToggle({ id: user.id, active: user.est_actif })}
@@ -352,14 +285,6 @@ export function SudoUsersPage() {
           </div>
         )}
       </div>
-
-      {assignTarget && (
-        <AssignModal
-          techUserId={assignTarget}
-          assignedBy={me!.id}
-          onClose={() => setAssignTarget(null)}
-        />
-      )}
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">

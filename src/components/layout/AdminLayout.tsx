@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Monitor, Wrench,
   FileText, MessageSquare, LogOut, History, Menu, X, QrCode,
@@ -56,13 +56,10 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside className={`fixed md:static z-40 inset-y-0 left-0 w-60 md:w-56 flex-shrink-0 bg-card border-r border-border flex flex-col transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="h-14 flex items-center px-4 border-b border-border gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px] font-bold text-white leading-none">IT</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-foreground leading-none">IT-Access</p>
+          <Link to="/admin/dashboard" onClick={() => setOpen(false)} className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold text-primary leading-none tracking-tight">IT-Access</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Administration</p>
-          </div>
+          </Link>
           <button onClick={() => setOpen(false)} className="md:hidden p-1 text-muted-foreground">
             <X size={18} />
           </button>

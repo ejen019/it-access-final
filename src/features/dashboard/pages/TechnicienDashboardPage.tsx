@@ -6,19 +6,8 @@ import { Link } from 'react-router-dom'
 import { Wrench, Clock, ArrowRight, AlertTriangle, QrCode } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { useInterventionsTechnicien } from '@/features/interventions/hooks/useInterventions'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase/client'
 import { DonutChart } from '@/components/shared/DonutChart'
 import { BarChart } from '@/components/shared/BarChart'
-
-async function fetchAssignedCompanies(profileId: string) {
-  const { data: tech } = await supabase
-    .from('techniciens').select('id').eq('utilisateur_id', profileId).single()
-  if (!tech) return []
-  const { data } = await supabase
-    .from('affectations').select('clients(id, nom_entreprise)').eq('technicien_id', tech.id)
-  return (data ?? []).map((a: any) => a.clients).filter(Boolean)
-}
 
 function StatCard({ icon: Icon, label, value, alert }: {
   icon: any; label: string; value: number; alert?: boolean
@@ -61,11 +50,10 @@ const URGENCY_DOT: Record<string, string> = {
 export function TechnicienDashboardPage() {
   const { profile } = useAuthStore()
   const { data: interventions = [] } = useInterventionsTechnicien(profile?.id)
-  const { data: companies = [] } = useQuery({
-    queryKey: ['tech-companies', profile?.id],
-    queryFn: () => fetchAssignedCompanies(profile!.id),
-    enabled: !!profile,
-  })
+  // Entreprises dérivées des missions (plus d'affectation directe entreprise↔technicien)
+  const companiesCount = new Set(
+    interventions.map((i: any) => i.client_id).filter(Boolean)
+  ).size
 
   const active    = interventions.filter((i: any) => i.statut === 'planifiee').length
   const enCours   = interventions.filter((i: any) => i.statut === 'en_cours').length
@@ -83,7 +71,7 @@ export function TechnicienDashboardPage() {
         <p className="text-xs text-muted-foreground">{getGreeting()}</p>
         <h1 className="text-xl font-bold text-foreground">{profile?.nom}</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {companies.length} entreprise{companies.length > 1 ? 's' : ''} assignée{companies.length > 1 ? 's' : ''}
+          {companiesCount} entreprise{companiesCount > 1 ? 's' : ''} · {interventions.length} mission{interventions.length > 1 ? 's' : ''}
         </p>
       </div>
 

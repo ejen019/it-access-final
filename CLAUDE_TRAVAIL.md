@@ -46,5 +46,13 @@ Le user veut (message courant) :
 ## Prérequis test (à rappeler au user si besoin)
 - Bucket Storage `it-access-fichiers` (public), Realtime sur `messages,notifications,interventions,utilisateurs`, table `abonnements` seedée (starter/medium/premium), super_admin bootstrapé manuellement (cf. PLAN_DE_TEST.md §1).
 
-## Première action recommandée à la reprise
-Points 4 et 5 livrés (build + tsc OK, commit sur `developp`). Enchaîner sur le **point 6** (navbar horizontale `h-14` qui cacherait des infos + revue affichage menus/pages) puis le **point 7** (refonte fine des pages de listes façon DeepSeek).
+## Session branding + corrections (livré)
+8. ✅ **Branding** : logo carré "IT"/"S" supprimé partout. "IT-Access" en **bleu** (`text-primary`, bold) et **cliquable** vers l'accueil du rôle (4 layouts) / `/` (landing header + footer).
+9. ✅ **Plus d'affectation technicien↔entreprise** : retiré de `UsersPage`, `SudoUsersPage` (AssignModal + mutations supprimés), `EquipmentPassportPage` (panne = intervention non assignée, admin assigne ensuite), `TechnicienDashboard` (entreprises dérivées des interventions). L'admin choisit les techniciens **à la planification** : `InterventionsAdminPage` charge désormais **tous** les techniciens actifs (`fetchAllTechniciens`), plus via `affectations`.
+10. ✅ **Interventions séparées par type** : onglets **Toutes / Réparations / Périodiques** (filtre `type_planification`), colonne Type + badge, date de planification pour périodique, barre de filtres en grille responsive (plus de chevauchement). Logique inchangée.
+11. ✅ **Historique** : filtre par dates (du/au), bouton **Télécharger CSV** (BOM Excel), badges d'action colorés, détails repliables (`<details>`), tri récent→ancien (déjà), header harmonisé.
+12. ✅ **Messagerie réparée** : BUG = colonne `repondre_a_id` au lieu de `reponse_a_id` (select+insert échouaient) → corrigé. Ajout **accusés de lecture** (colonne `lu`) avec ticks façon WhatsApp (`ReadTicks` : simple trait hors ligne, double trait en ligne, double **bleu** si lu), **présence en ligne** via Realtime Presence (`useOnlineUsers`, points verts), **compteur de non-lus** par contact + total, tri des contacts non-lus en tête.
+
+## Reste éventuel
+- Point 6 (revue fine autres pages de listes façon DeepSeek : `EquipmentAdminPage`, `SudoEquipmentPage`, `ContractsPage`, etc.) si le user le redemande.
+- Prérequis Realtime : table `messages` doit avoir UPDATE activé dans la publication realtime (pour propager `lu`). Presence ne nécessite pas de DB.

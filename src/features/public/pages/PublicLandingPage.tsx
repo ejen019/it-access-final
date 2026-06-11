@@ -63,12 +63,9 @@ export function PublicLandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-20 bg-card/90 backdrop-blur-md border-b border-border">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
-              <span className="text-[10px] font-bold text-white leading-none">IT</span>
-            </div>
-            <span className="text-[13px] font-semibold text-foreground">IT-Access</span>
-          </div>
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
+          </Link>
           <nav className="hidden sm:flex items-center gap-6 text-[13px] text-muted-foreground">
             <a href="#fonctionnalites" className="hover:text-foreground transition-colors">Fonctionnalités</a>
             <a href="#tarifs" className="hover:text-foreground transition-colors">Tarifs</a>
@@ -223,10 +220,7 @@ export function PublicLandingPage() {
       <footer className="border-t border-border bg-card">
         <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
-              <span className="text-[9px] font-bold text-white">IT</span>
-            </div>
-            <span className="text-[13px] font-medium text-foreground">IT-Access</span>
+            <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
             <span className="text-xs text-muted-foreground hidden sm:inline">· Gestion de maintenance informatique</span>
           </div>
           <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} IT-Access. Tous droits réservés.</p>

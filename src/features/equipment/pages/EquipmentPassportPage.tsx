@@ -45,14 +45,8 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
     setIsLoading(true)
 
     try {
-      // Techniciens assignés à ce client
-      const { data: affectations } = await supabase
-        .from('affectations')
-        .select('technicien_id, techniciens(utilisateur_id)')
-        .eq('client_id', equipment.client_id)
-
-      const technicienIds = (affectations ?? []).map((a: any) => a.technicien_id).filter(Boolean)
-      const techUserIds = (affectations ?? []).map((a: any) => a.techniciens?.utilisateur_id).filter(Boolean)
+      // L'affectation des techniciens se fait à la planification par l'admin.
+      // La panne crée une intervention non assignée + notifie les admins.
 
       // Mettre l'équipement en panne
       await supabase.from('equipements').update({ etat: 'en_panne' }).eq('id', equipment.id)
@@ -73,12 +67,6 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
           equipement_id: equipment.id,
         })
 
-        if (technicienIds.length) {
-          await supabase.from('interventions_techniciens').insert(
-            technicienIds.map((tid: string) => ({ intervention_id: intervention.id, technicien_id: tid }))
-          )
-        }
-
         const { data: admins } = await supabase
           .from('utilisateurs').select('id').in('role', ['admin', 'super_admin'])
         if (admins?.length) {
@@ -92,16 +80,6 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
           )
         }
 
-        if (techUserIds.length) {
-          await supabase.from('notifications').insert(
-            techUserIds.map((uid: string) => ({
-              utilisateur_id: uid,
-              titre: `Nouvelle panne — ${equipment.nom}`,
-              corps: description.slice(0, 80),
-              lien: `/technicien/interventions/${intervention.id}`,
-            }))
-          )
-        }
       }
 
       queryClient.invalidateQueries({ queryKey: ['equipement-detail', equipment.id] })

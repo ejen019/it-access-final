@@ -38,10 +38,11 @@ async function fetchAbonnements() {
   return data ?? []
 }
 
-const PLAN_COLOR: Record<string, string> = {
-  starter: 'bg-slate-600',
-  medium:  'bg-blue-600',
-  premium: 'bg-violet-600',
+// Styles sobres (pills teintées, cohérents avec les badges du reste de l'app)
+const PLAN_PILL: Record<string, string> = {
+  starter: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  medium:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  premium: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
 }
 
 const PLAN_LABEL: Record<string, string> = {
@@ -111,8 +112,9 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 space-y-5 shadow-xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
+      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md my-4 p-6 space-y-5 shadow-xl">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
             <Plus size={16} className="text-white" />
@@ -144,28 +146,27 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
             {(abonnements as any[]).length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {(abonnements as any[]).map((ab) => {
-                  const c = PLAN_COLOR[ab.plan] ?? PLAN_COLOR.starter
                   const isSelected = abonnementId === ab.id
                   return (
                     <button
                       key={ab.id}
                       type="button"
                       onClick={() => setAbonnementId(ab.id)}
-                      className={`border-2 rounded-xl p-3 text-left transition-all ${
+                      className={`border rounded-xl p-3 text-left transition-all ${
                         isSelected
-                          ? `border-transparent ${c} shadow-sm`
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
                           : 'border-border hover:border-primary/40'
                       }`}
                     >
-                      <p className={`font-semibold text-xs capitalize ${isSelected ? 'text-white' : 'text-foreground'}`}>
+                      <span className={`inline-flex text-[11px] px-1.5 py-0.5 rounded-full font-medium capitalize ${PLAN_PILL[ab.plan] ?? PLAN_PILL.starter}`}>
                         {PLAN_LABEL[ab.plan] ?? ab.plan}
-                      </p>
-                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-muted-foreground'}`}>
+                      </span>
+                      <p className="text-xs mt-1.5 text-muted-foreground">
                         {ab.max_equipements} équip. · {ab.max_techniciens} tech.
                       </p>
-                      <p className={`text-xs mt-1 font-semibold ${isSelected ? 'text-white/90' : 'text-foreground'}`}>
+                      <p className="text-xs mt-1 font-semibold text-foreground">
                         {(ab.montant ?? 0).toLocaleString('fr-FR')}
-                        <span className={`font-normal text-[10px] ml-0.5 ${isSelected ? 'text-white/60' : 'text-muted-foreground'}`}> FCFA</span>
+                        <span className="font-normal text-[10px] ml-0.5 text-muted-foreground"> FCFA</span>
                       </p>
                     </button>
                   )
@@ -211,6 +212,7 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       </div>
+      </div>
     </div>
   )
 }
@@ -250,7 +252,7 @@ export function ContractsPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2.5 gradient-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus size={16} />
           Nouveau contrat
@@ -259,8 +261,8 @@ export function ContractsPage() {
 
       {expiringSoon > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-          <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-            <AlertTriangle size={16} className="text-white" />
+          <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
           </div>
           <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
             {expiringSoon} contrat{expiringSoon > 1 ? 's' : ''} expire{expiringSoon > 1 ? 'nt' : ''} dans moins de 30 jours.
@@ -283,36 +285,33 @@ export function ContractsPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {contrats.map((contrat: any) => {
             const days = daysUntil(contrat.date_fin)
             const isExpired = days < 0
             const isExpiringSoon = days >= 0 && days <= 30
             const planKey = (contrat.abonnements?.plan ?? 'starter') as TypePlan
-            const c = PLAN_COLOR[planKey] ?? PLAN_COLOR.starter
+            const planPill = PLAN_PILL[planKey] ?? PLAN_PILL.starter
 
             return (
-              <div key={contrat.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div className={`relative overflow-hidden ${c} px-5 py-4`}>
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-white" />
+              <div key={contrat.id} className="bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${planPill}`}>
+                      <Building2 size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground truncate">{contrat.clients?.nom_entreprise ?? '—'}</p>
+                      <span className={`inline-flex text-[11px] px-1.5 py-0.5 rounded-full font-medium capitalize mt-0.5 ${planPill}`}>
+                        {PLAN_LABEL[planKey] ?? planKey}
+                      </span>
+                    </div>
                   </div>
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center border border-white/30">
-                        <Building2 size={16} className="text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">{contrat.clients?.nom_entreprise ?? '—'}</p>
-                        <p className="text-white/70 text-xs capitalize">{PLAN_LABEL[planKey] ?? planKey}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-white font-bold text-sm">
-                        {(contrat.abonnements?.montant ?? 0).toLocaleString('fr-FR')}
-                      </p>
-                      <p className="text-white/60 text-xs">FCFA / an</p>
-                    </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-foreground">
+                      {(contrat.abonnements?.montant ?? 0).toLocaleString('fr-FR')}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">FCFA / an</p>
                   </div>
                 </div>
 

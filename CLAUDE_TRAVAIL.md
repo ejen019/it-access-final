@@ -53,6 +53,12 @@ Le user veut (message courant) :
 11. ✅ **Historique** : filtre par dates (du/au), bouton **Télécharger CSV** (BOM Excel), badges d'action colorés, détails repliables (`<details>`), tri récent→ancien (déjà), header harmonisé.
 12. ✅ **Messagerie réparée** : BUG = colonne `repondre_a_id` au lieu de `reponse_a_id` (select+insert échouaient) → corrigé. Ajout **accusés de lecture** (colonne `lu`) avec ticks façon WhatsApp (`ReadTicks` : simple trait hors ligne, double trait en ligne, double **bleu** si lu), **présence en ligne** via Realtime Presence (`useOnlineUsers`, points verts), **compteur de non-lus** par contact + total, tri des contacts non-lus en tête.
 
+## Session formulaires + refonte listes (livré)
+13. ✅ **BUG GÉNÉRAL des formulaires (modales masquées par la navbar)** : cause racine = `.page-transition` avait `animation … both` → l'état final `transform: translateY(0)` persistait et créait un **bloc conteneur** qui piégeait tout `position: fixed` (modales) dans la zone de contenu. Fix : retrait du fill-mode (`globals.css`). Désormais TOUTES les modales s'affichent par-dessus la navbar. Bonus : overlays scrollables (`min-h-full` + padding) sur modales intervention & contrat.
+14. ✅ **Couleurs des formulaires harmonisées** : sélecteurs d'urgence (interventions + signalement panne) et plans d'abonnement (contrats) ne sont plus des aplats vifs (orange `bg-amber-500`, `bg-emerald-50` sans dark…) → palette de badges sobre avec variantes dark. ContractsPage : bandeau de couleur pleine des cartes → en-tête sobre + pills teintées ; alerte/boutons harmonisés ; liste en grille 2 colonnes.
+15. ✅ **EquipmentAdminPage** : ligne de mini-stats (total/opérationnels/maintenance/panne), état vide avec icône + CTA, skeleton de chargement.
+
 ## Reste éventuel
-- Point 6 (revue fine autres pages de listes façon DeepSeek : `EquipmentAdminPage`, `SudoEquipmentPage`, `ContractsPage`, etc.) si le user le redemande.
+- Refonte d'autres listes (`SudoEquipmentPage`, `SudoUsersPage`, `UsersPage`) au même standard si redemandé.
 - Prérequis Realtime : table `messages` doit avoir UPDATE activé dans la publication realtime (pour propager `lu`). Presence ne nécessite pas de DB.
+- **Le user teste avant validation** (son `npm run dev` sur :5173, hot-reload — le preview MCP ne peut pas binder).

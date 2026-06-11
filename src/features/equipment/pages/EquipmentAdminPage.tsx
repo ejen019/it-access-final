@@ -58,6 +58,7 @@ export function EquipmentAdminPage() {
   const stats = {
     total: equipment.length,
     operationnel: (equipment as any[]).filter((e) => e.etat === 'operationnel').length,
+    maintenance: (equipment as any[]).filter((e) => e.etat === 'maintenance').length,
     en_panne: (equipment as any[]).filter((e) => e.etat === 'en_panne').length,
   }
 
@@ -72,9 +73,7 @@ export function EquipmentAdminPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Équipements</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {stats.total} total · {stats.operationnel} opérationnels · {stats.en_panne} en panne
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Parc informatique de toutes les entreprises</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -92,6 +91,22 @@ export function EquipmentAdminPage() {
             Ajouter
           </button>
         </div>
+      </div>
+
+      {/* Mini stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total',         value: stats.total,        bar: 'bg-primary',     textColor: 'text-foreground' },
+          { label: 'Opérationnels', value: stats.operationnel, bar: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Maintenance',   value: stats.maintenance,  bar: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
+          { label: 'En panne',      value: stats.en_panne,     bar: 'bg-red-500',     textColor: 'text-red-600 dark:text-red-400' },
+        ].map((s) => (
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+            <p className={`text-xl font-bold ${s.textColor}`}>{s.value}</p>
+            <div className={`h-0.5 w-8 rounded-full ${s.bar} mt-1 mb-1`} />
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+          </div>
+        ))}
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -129,9 +144,25 @@ export function EquipmentAdminPage() {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {isLoading ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Chargement…</p>
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Aucun équipement trouvé</p>
+          <div className="py-16 text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+              <Monitor size={26} className="text-muted-foreground/40" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {search || filterClient || filterEtat ? 'Aucun équipement ne correspond aux filtres' : 'Aucun équipement enregistré'}
+            </p>
+            {!search && !filterClient && !filterEtat && (
+              <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">
+                Ajouter le premier équipement
+              </button>
+            )}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

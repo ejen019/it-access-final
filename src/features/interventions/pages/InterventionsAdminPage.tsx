@@ -390,14 +390,14 @@ export function InterventionsAdminPage() {
       {/* Mini stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Planifiées',  value: stats.planifiee, from: 'from-blue-500',   to: 'to-indigo-600',  textColor: 'text-blue-600 dark:text-blue-400' },
-          { label: 'En cours',    value: stats.en_cours,  from: 'from-orange-400', to: 'to-amber-500',   textColor: 'text-orange-600 dark:text-orange-400' },
-          { label: 'Terminées',   value: stats.terminee,  from: 'from-purple-400', to: 'to-violet-500',  textColor: 'text-purple-600 dark:text-purple-400' },
-          { label: 'Critiques',   value: stats.critiques, from: 'from-red-400',    to: 'to-rose-500',    textColor: 'text-red-600 dark:text-red-400' },
+          { label: 'Planifiées',  value: stats.planifiee, bar: 'bg-blue-500',   textColor: 'text-blue-600 dark:text-blue-400' },
+          { label: 'En cours',    value: stats.en_cours,  bar: 'bg-amber-500',  textColor: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Terminées',   value: stats.terminee,  bar: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400' },
+          { label: 'Critiques',   value: stats.critiques, bar: 'bg-red-500',    textColor: 'text-red-600 dark:text-red-400' },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <p className={`text-xl font-bold ${s.textColor}`}>{s.value}</p>
-            <div className={`h-0.5 w-8 rounded-full bg-gradient-to-r ${s.from} ${s.to} mt-1 mb-1`} />
+            <div className={`h-0.5 w-8 rounded-full ${s.bar} mt-1 mb-1`} />
             <p className="text-xs text-muted-foreground">{s.label}</p>
           </div>
         ))}

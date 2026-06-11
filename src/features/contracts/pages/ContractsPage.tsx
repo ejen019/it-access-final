@@ -38,10 +38,10 @@ async function fetchAbonnements() {
   return data ?? []
 }
 
-const PLAN_GRADIENT: Record<string, { from: string; to: string }> = {
-  starter:    { from: 'from-slate-500', to: 'to-slate-600' },
-  medium:     { from: 'from-blue-500',  to: 'to-indigo-600' },
-  premium:    { from: 'from-purple-500', to: 'to-violet-600' },
+const PLAN_COLOR: Record<string, string> = {
+  starter: 'bg-slate-600',
+  medium:  'bg-blue-600',
+  premium: 'bg-violet-600',
 }
 
 const PLAN_LABEL: Record<string, string> = {
@@ -144,7 +144,7 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
             {(abonnements as any[]).length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {(abonnements as any[]).map((ab) => {
-                  const g = PLAN_GRADIENT[ab.plan] ?? PLAN_GRADIENT.starter
+                  const c = PLAN_COLOR[ab.plan] ?? PLAN_COLOR.starter
                   const isSelected = abonnementId === ab.id
                   return (
                     <button
@@ -153,7 +153,7 @@ function CreateContractModal({ onClose }: { onClose: () => void }) {
                       onClick={() => setAbonnementId(ab.id)}
                       className={`border-2 rounded-xl p-3 text-left transition-all ${
                         isSelected
-                          ? `border-transparent bg-gradient-to-br ${g.from} ${g.to} shadow-sm`
+                          ? `border-transparent ${c} shadow-sm`
                           : 'border-border hover:border-primary/40'
                       }`}
                     >
@@ -259,7 +259,7 @@ export function ContractsPage() {
 
       {expiringSoon > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-          <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
             <AlertTriangle size={16} className="text-white" />
           </div>
           <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
@@ -289,11 +289,11 @@ export function ContractsPage() {
             const isExpired = days < 0
             const isExpiringSoon = days >= 0 && days <= 30
             const planKey = (contrat.abonnements?.plan ?? 'starter') as TypePlan
-            const g = PLAN_GRADIENT[planKey] ?? PLAN_GRADIENT.starter
+            const c = PLAN_COLOR[planKey] ?? PLAN_COLOR.starter
 
             return (
               <div key={contrat.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div className={`relative overflow-hidden bg-gradient-to-r ${g.from} ${g.to} px-5 py-4`}>
+                <div className={`relative overflow-hidden ${c} px-5 py-4`}>
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-white" />
                   </div>

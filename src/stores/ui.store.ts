@@ -21,7 +21,7 @@ interface UIState {
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
-      theme: 'system',
+      theme: 'dark',
       sidebarOpen: true,
       networkStatus: 'online',
 

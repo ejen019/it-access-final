@@ -156,7 +156,7 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 p-4 md:p-6 page-transition">
-      <div className={`relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br ${roleTheme.panel} p-5 md:p-6`}>
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 md:p-6">
         <div className="absolute inset-0 opacity-40">
           <div className="absolute -top-24 -right-16 h-40 w-40 rounded-full border border-border/40" />
           <div className="absolute -bottom-20 left-8 h-32 w-32 rounded-full border border-border/40" />
@@ -183,7 +183,7 @@ export function ProfilePage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm xl:col-span-2">
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <User size={13} className="text-white" />
           </div>
           <h2 className="font-semibold text-foreground text-sm">Informations personnelles</h2>
@@ -233,7 +233,7 @@ export function ProfilePage() {
 
       <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm xl:col-span-2">
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-slate-600 flex items-center justify-center">
             <Lock size={13} className="text-white" />
           </div>
           <h2 className="font-semibold text-foreground text-sm">Sécurité</h2>
@@ -265,7 +265,7 @@ export function ProfilePage() {
 
       <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm xl:col-span-1 xl:row-span-2">
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center">
             <Sun size={13} className="text-white" />
           </div>
           <h2 className="font-semibold text-foreground text-sm">Apparence</h2>
@@ -299,7 +299,7 @@ export function ProfilePage() {
       {profile?.role === 'client' && client && (
         <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
               <Shield size={13} className="text-white" />
             </div>
             <h2 className="font-semibold text-foreground text-sm">Code de validation</h2>

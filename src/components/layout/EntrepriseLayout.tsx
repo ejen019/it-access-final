@@ -2,6 +2,7 @@ import { Outlet, NavLink } from 'react-router-dom'
 import { LayoutDashboard, Monitor, Wrench, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { NotificationBell } from '@/components/shared/NotificationBell'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const NAV_ITEMS = [
   { to: '/entreprise/dashboard',     icon: LayoutDashboard, label: 'Accueil' },
@@ -25,6 +26,7 @@ export function EntrepriseLayout() {
           <span className="text-[13px] font-semibold text-foreground">IT-Access</span>
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <NotificationBell />
           <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-sm font-semibold">
             {initial}

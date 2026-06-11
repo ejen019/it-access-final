@@ -90,7 +90,7 @@ export function InterventionsTechPage() {
       {/* Alerte critique */}
       {critiques > 0 && (
         <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3.5">
-          <div className="w-8 h-8 bg-gradient-to-br from-red-400 to-rose-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="w-8 h-8 bg-red-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
             <AlertTriangle size={14} className="text-white" />
           </div>
           <p className="text-sm font-medium text-red-700 dark:text-red-400">

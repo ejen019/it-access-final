@@ -7,6 +7,7 @@ import {
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const NAV_ITEMS = [
   { to: '/admin/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
@@ -119,6 +120,7 @@ export function AdminLayout() {
               Bonjour, <span className="text-foreground font-medium">{profile?.prenom ?? displayName}</span>
             </p>
           </div>
+          <ThemeToggle />
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-y-auto">

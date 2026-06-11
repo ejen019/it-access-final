@@ -51,9 +51,13 @@
   --font-mono: 'Geist Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-/* ----- CSS custom properties (valeurs HSL) ----- */
+/* ----- Design tokens DeepSeek -----
+   Clair = palette claire DeepSeek ; sombre = charcoal #0A0A0F.
+   Bleu de marque #3B82F6 = hsl(217 91% 60%) dans les deux modes.
+--------------------------------------------------------- */
 :root {
-  --background: 0 0% 100%;
+  /* Light mode DeepSeek : #F9FAFB / #FFFFFF / #111827 */
+  --background: 220 14% 98%;
   --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
@@ -62,59 +66,61 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Bleu technique sobre — #2563EB */
-  --primary: 221 83% 53%;
+  --primary: 217 91% 60%;          /* #3B82F6 */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 20% 96%;
-  --secondary-foreground: 215 16% 47%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 9% 46%;
 
-  --muted: 210 20% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;   /* #6B7280 */
 
-  --accent: 210 20% 96%;
+  --accent: 220 14% 94%;
   --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 84% 60%;         /* #EF4444 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 13% 91%;            /* #E5E7EB */
+  --input: 220 13% 91%;
+  --ring: 217 91% 60%;
+
+  --radius: 0.5rem;
+
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+}
+
+.dark {
+  /* Dark mode DeepSeek : #0A0A0F / #111116 / #1A1A24 / #EDEDEF / #2A2A35 */
+  --background: 240 21% 5%;          /* #0A0A0F */
+  --foreground: 240 5% 93%;          /* #EDEDEF */
+
+  --card: 240 13% 8%;                /* #111116 */
+  --card-foreground: 240 5% 93%;
+
+  --popover: 240 13% 8%;
+  --popover-foreground: 240 5% 93%;
+
+  --primary: 217 91% 60%;            /* #3B82F6 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 16% 12%;          /* #1A1A24 */
+  --secondary-foreground: 240 5% 93%;
+
+  --muted: 240 16% 12%;              /* #1A1A24 */
+  --muted-foreground: 240 7% 63%;    /* #9A9AA8 */
+
+  --accent: 240 16% 14%;
+  --accent-foreground: 240 5% 93%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
-
-  --radius: 0.5rem;
-
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-}
-
-.dark {
-  --background: 222 47% 6%;
-  --foreground: 213 27% 90%;
-
-  --card: 222 47% 8%;
-  --card-foreground: 213 27% 90%;
-
-  --popover: 222 47% 8%;
-  --popover-foreground: 213 27% 90%;
-
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 215 28% 16%;
-  --secondary-foreground: 213 27% 90%;
-
-  --muted: 215 28% 16%;
-  --muted-foreground: 215 20% 55%;
-
-  --accent: 215 28% 16%;
-  --accent-foreground: 213 27% 90%;
-
-  --destructive: 0 62% 40%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 215 28% 15%;
-  --input: 215 28% 15%;
+  --border: 240 12% 19%;             /* #2A2A35 */
+  --input: 240 12% 19%;
   --ring: 217 91% 60%;
+
+  --shadow-sm: 0 4px 20px rgb(0 0 0 / 0.4);
 }
 
 /* ----- Base styles ----- */

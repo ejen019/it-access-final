@@ -25,7 +25,9 @@ async function fetchEquipementInterventions(equipementId: string) {
 }
 
 const URGENCY_COLOR: Record<string, string> = {
-  faible: 'bg-emerald-50 text-emerald-700', moyenne: 'bg-amber-50 text-amber-700', critique: 'bg-red-50 text-red-700',
+  faible: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+  moyenne: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+  critique: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
 }
 const STATUS_LABEL: Record<string, string> = {
   planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
@@ -114,8 +116,8 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
             <div className="flex gap-2">
               {(['faible', 'moyenne', 'critique'] as const).map((u) => (
                 <button key={u} type="button" onClick={() => setUrgence(u)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                    urgence === u ? `${URGENCY_COLOR[u]} ring-2 ring-current` : 'bg-muted text-muted-foreground'
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors border ${
+                    urgence === u ? URGENCY_COLOR[u] : 'bg-muted text-muted-foreground border-transparent'
                   }`}
                 >
                   {u}

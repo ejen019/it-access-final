@@ -165,14 +165,15 @@ function CreateModal({ onClose }: CreateModalProps) {
   }
 
   const urgencyConfig = [
-    { value: 'faible' as NiveauUrgence,   label: 'Faible',   solid: 'bg-slate-500' },
-    { value: 'moyenne' as NiveauUrgence,  label: 'Moyenne',  solid: 'bg-amber-500' },
-    { value: 'critique' as NiveauUrgence, label: 'Critique', solid: 'bg-red-500' },
+    { value: 'faible' as NiveauUrgence,   label: 'Faible',   sel: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' },
+    { value: 'moyenne' as NiveauUrgence,  label: 'Moyenne',  sel: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700' },
+    { value: 'critique' as NiveauUrgence, label: 'Critique', sel: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' },
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
+      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg my-4 shadow-xl">
         <div className="px-5 pt-5 pb-4 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
@@ -269,7 +270,7 @@ function CreateModal({ onClose }: CreateModalProps) {
                   onClick={() => setUrgence(u.value)}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-colors border ${
                     urgence === u.value
-                      ? `${u.solid} text-white border-transparent`
+                      ? u.sel
                       : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
@@ -347,6 +348,7 @@ function CreateModal({ onClose }: CreateModalProps) {
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   )

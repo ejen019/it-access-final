@@ -152,8 +152,14 @@ code, kbd, pre, .font-mono {
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
 
 /* ----- Utilitaires personnalisés ----- */
+/*
+  Animation d'entrée des pages. IMPORTANT : pas de fill-mode `both`/`forwards`.
+  Conserver l'état final `transform: translateY(0)` créerait un bloc conteneur
+  qui piège les modales `position: fixed` dans la zone de contenu (masquées par
+  la navbar). Sans persistance, le transform redevient `none` après l'animation.
+*/
 @utility page-transition {
-  animation: pageIn 0.2s ease-out both;
+  animation: pageIn 0.2s ease-out;
 }
 
 @keyframes pageIn {

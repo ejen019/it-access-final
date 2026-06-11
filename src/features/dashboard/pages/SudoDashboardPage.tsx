@@ -1,26 +1,19 @@
 // =============================================================
-// SudoDashboardPage — Super-administrateur (Sudo)
-//
-// Modérateur complet : stats globales, gestion admins,
-// entreprises, techniciens, interventions, équipements.
-// Le sudo a un droit de regard et d'action sur TOUT.
+// SudoDashboardPage — Super-administrateur (super_admin)
+// Contrôle global : stats, gestion admins, entreprises, validation.
 // =============================================================
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Users, Building2, Monitor, Wrench, Plus, Loader2, Shield,
   CheckCircle2, XCircle, ChevronRight, Search,
-  FileText, AlertTriangle, BarChart3, RefreshCw, Settings,
+  FileText, AlertTriangle, BarChart3, RefreshCw,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { fetchPublicConfig, savePublicConfig, type PublicAppConfig } from '@/lib/publicConfig'
 import { SimpleBarChart } from '@/components/shared/SimpleBarChart'
 
-// ----- Types locaux -----
-type AdminForm = { email: string; password: string; full_name: string }
-
-// ----- Helpers Supabase -----
+type AdminForm = { email: string; password: string; nom: string; prenom: string }
 
 async function fetchSudoStats() {
   const results = await Promise.all([
@@ -77,8 +70,6 @@ async function fetchAllCompanies(search: string) {
   return data ?? []
 }
 
-// ----- Composants UI -----
-
 const STATUS_LABEL: Record<string, string> = {
   planifiee: 'Planifiée', en_cours: 'En cours',
   terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
@@ -94,8 +85,8 @@ const URGENCY_DOT: Record<string, string> = {
   faible: 'bg-emerald-400', moyenne: 'bg-amber-400', critique: 'bg-red-500',
 }
 
-function StatCard({ icon: Icon, label, value, sub, alert }: {
-  icon: any; label: string; value: number; sub?: string; alert?: boolean
+function StatCard({ icon: Icon, label, value, alert }: {
+  icon: any; label: string; value: number; alert?: boolean
 }) {
   return (
     <div className={`bg-card border rounded-lg p-4 flex items-center gap-3 ${alert && value > 0 ? 'border-amber-300 dark:border-amber-700' : 'border-border'}`}>
@@ -105,27 +96,23 @@ function StatCard({ icon: Icon, label, value, sub, alert }: {
       <div className="min-w-0">
         <p className="text-xl font-bold text-foreground leading-none">{value}</p>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">{label}</p>
-        {sub && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</p>}
       </div>
     </div>
   )
 }
 
-// ----- Page principale -----
-
-type ActiveTab = 'overview' | 'admins' | 'companies' | 'pending' | 'settings'
+type ActiveTab = 'overview' | 'admins' | 'companies' | 'pending'
 
 export function SudoDashboardPage() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<ActiveTab>('overview')
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState<AdminForm>({ email: '', password: '', full_name: '' })
+  const [form, setForm] = useState<AdminForm>({ email: '', password: '', nom: '', prenom: '' })
   const [formError, setFormError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [companySearch, setCompanySearch] = useState('')
-  const [configDraft, setConfigDraft] = useState<PublicAppConfig | null>(null)
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, error } = useQuery({
     queryKey: ['sudo-stats'],
     queryFn: fetchSudoStats,
     refetchInterval: 30_000,
@@ -136,26 +123,14 @@ export function SudoDashboardPage() {
     queryFn: () => fetchAllCompanies(companySearch),
     enabled: tab === 'companies',
   })
-  const { data: publicConfig } = useQuery({
-    queryKey: ['public-config'],
-    queryFn: fetchPublicConfig,
-    enabled: tab === 'settings',
-  })
-  const { mutate: saveConfig, isPending: savingConfig } = useMutation({
-    mutationFn: savePublicConfig,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-config'] })
-    },
-  })
 
-  // Validation / désactivation d'un utilisateur depuis l'onglet pending
   const { mutate: doValidate } = useMutation({
     mutationFn: async (userId: string) => {
       await supabase.from('utilisateurs').update({ compte_valide: true, est_actif: true }).eq('id', userId)
       await supabase.from('notifications').insert({
         utilisateur_id: userId,
         titre: 'Compte validé',
-        corps: "Votre compte a été validé par un administrateur.",
+        corps: 'Votre compte a été validé par un administrateur.',
         lien: '/',
       })
     },
@@ -176,35 +151,31 @@ export function SudoDashboardPage() {
 
   async function handleCreateAdmin(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.email || !form.password || !form.full_name) {
-      setFormError('Tous les champs sont requis.')
+    if (!form.email || !form.password || !form.nom) {
+      setFormError('Nom, email et mot de passe sont requis.')
       return
     }
-    if (form.password.length < 6) {
-      setFormError('Le mot de passe doit contenir au moins 6 caractères.')
+    if (form.password.length < 8) {
+      setFormError('Le mot de passe doit contenir au moins 8 caractères.')
       return
     }
     setFormError(null)
     setCreating(true)
     try {
       const { data, error: fnError } = await supabase.functions.invoke('create-admin', {
-        body: { email: form.email, password: form.password, full_name: form.full_name },
+        body: { email: form.email, password: form.password, nom: form.nom, prenom: form.prenom },
       })
       if (fnError) throw fnError
       if (data?.error) throw new Error(data.error)
       queryClient.invalidateQueries({ queryKey: ['sudo-stats'] })
       setShowCreate(false)
-      setForm({ email: '', password: '', full_name: '' })
+      setForm({ email: '', password: '', nom: '', prenom: '' })
     } catch (err: any) {
       setFormError(err?.message ?? 'Erreur lors de la création.')
     } finally {
       setCreating(false)
     }
   }
-
-  useEffect(() => {
-    if (tab === 'settings' && publicConfig) setConfigDraft(publicConfig)
-  }, [tab, publicConfig])
 
   if (isLoading) {
     return (
@@ -214,25 +185,40 @@ export function SudoDashboardPage() {
     )
   }
 
+  if (error || !stats) {
+    return (
+      <div className="max-w-md mx-auto mt-10 bg-card border border-border rounded-xl p-6 text-center space-y-3">
+        <AlertTriangle size={28} className="mx-auto text-amber-500" />
+        <p className="text-sm font-medium text-foreground">Impossible de charger les statistiques</p>
+        <p className="text-xs text-muted-foreground">{(error as Error)?.message ?? 'Données indisponibles'}</p>
+        <button
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['sudo-stats'] })}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-xs font-medium"
+        >
+          <RefreshCw size={13} /> Réessayer
+        </button>
+      </div>
+    )
+  }
+
   const TABS = [
     { id: 'overview' as ActiveTab,  label: 'Vue d\'ensemble', icon: BarChart3 },
     { id: 'admins'   as ActiveTab,  label: 'Administrateurs', icon: Shield },
     { id: 'companies' as ActiveTab, label: 'Entreprises',     icon: Building2 },
-    { id: 'pending'  as ActiveTab,  label: `En attente${(stats?.pendingUsers ?? 0) > 0 ? ` (${stats!.pendingUsers})` : ''}`, icon: AlertTriangle },
-    { id: 'settings' as ActiveTab, label: 'Vitrine & Pricing', icon: Settings },
+    { id: 'pending'  as ActiveTab,  label: `En attente${stats.pendingUsers > 0 ? ` (${stats.pendingUsers})` : ''}`, icon: AlertTriangle },
   ]
 
   return (
-    <div className="p-6 space-y-5 page-transition max-w-5xl mx-auto">
+    <div className="space-y-5 page-transition max-w-5xl">
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Shield size={18} className="text-primary" />
+          <div className="w-9 h-9 rounded-lg bg-violet-500/12 flex items-center justify-center">
+            <Shield size={18} className="text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Sudo — Contrôle global</h1>
+            <h1 className="text-xl font-bold text-foreground">Contrôle global</h1>
             <p className="text-xs text-muted-foreground">Accès complet à la plateforme IT-Access</p>
           </div>
         </div>
@@ -246,12 +232,12 @@ export function SudoDashboardPage() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-0.5 bg-muted p-1 rounded-lg w-fit">
+      <div className="flex gap-0.5 bg-muted p-1 rounded-lg w-fit overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
               tab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -265,26 +251,25 @@ export function SudoDashboardPage() {
       {tab === 'overview' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={Building2}    label="Entreprises"      value={stats!.companies} />
-            <StatCard icon={Users}        label="Techniciens"      value={stats!.techs} />
-            <StatCard icon={Monitor}      label="Équipements"      value={stats!.equipment} />
-            <StatCard icon={Wrench}       label="Interventions"    value={stats!.interventions} />
-            <StatCard icon={FileText}     label="Contrats actifs"  value={stats!.contracts} />
-            <StatCard icon={Shield}       label="Admins"           value={stats!.admins} />
-            <StatCard icon={AlertTriangle} label="Critiques actives" value={stats!.criticalInterventions} alert />
-            <StatCard icon={Users}        label="Comptes en attente" value={stats!.pendingUsers} alert />
+            <StatCard icon={Building2}     label="Entreprises"        value={stats.companies} />
+            <StatCard icon={Users}         label="Techniciens"        value={stats.techs} />
+            <StatCard icon={Monitor}       label="Équipements"        value={stats.equipment} />
+            <StatCard icon={Wrench}        label="Interventions"      value={stats.interventions} />
+            <StatCard icon={FileText}      label="Contrats actifs"    value={stats.contracts} />
+            <StatCard icon={Shield}        label="Admins"             value={stats.admins} />
+            <StatCard icon={AlertTriangle} label="Critiques actives"  value={stats.criticalInterventions} alert />
+            <StatCard icon={Users}         label="Comptes en attente" value={stats.pendingUsers} alert />
           </div>
           <SimpleBarChart
             title="Distribution globale"
             items={[
-              { label: 'Entreprises', value: stats!.companies },
-              { label: 'Techniciens', value: stats!.techs, tone: 'success' },
-              { label: 'Equipements', value: stats!.equipment, tone: 'primary' },
-              { label: 'Interventions', value: stats!.interventions, tone: 'warning' },
+              { label: 'Entreprises', value: stats.companies },
+              { label: 'Techniciens', value: stats.techs, tone: 'success' },
+              { label: 'Équipements', value: stats.equipment, tone: 'primary' },
+              { label: 'Interventions', value: stats.interventions, tone: 'warning' },
             ]}
           />
 
-          {/* Accès rapide vers l'espace Admin */}
           <div className="bg-card border border-border rounded-lg p-4">
             <p className="text-xs font-medium text-muted-foreground mb-3">Accès modération</p>
             <div className="grid grid-cols-2 gap-2">
@@ -292,6 +277,7 @@ export function SudoDashboardPage() {
                 { to: '/sudo/utilisateurs',  label: 'Utilisateurs',  icon: Users },
                 { to: '/sudo/interventions', label: 'Interventions', icon: Wrench },
                 { to: '/sudo/equipements',   label: 'Équipements',   icon: Monitor },
+                { to: '/sudo/historique',    label: 'Historique',    icon: FileText },
               ].map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
@@ -306,28 +292,27 @@ export function SudoDashboardPage() {
             </div>
           </div>
 
-          {/* Interventions ouvertes récentes */}
-          {stats!.recentInterventions.length > 0 && (
+          {stats.recentInterventions.length > 0 && (
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/30">
                 <p className="text-sm font-semibold text-foreground">Interventions ouvertes</p>
               </div>
               <div className="divide-y divide-border">
-                {stats!.recentInterventions.map((i: any) => (
+                {stats.recentInterventions.map((i: any) => (
                   <Link
                     key={i.id}
-                    to={`/admin/interventions/${i.id}`}
+                    to={`/sudo/interventions/${i.id}`}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors"
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[i.urgence]}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[i.urgence] ?? 'bg-border'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{i.titre}</p>
                       <p className="text-xs text-muted-foreground">
-                        {i.clients?.nom_entreprise} · {new Date(i.cree_le).toLocaleDateString('fr-FR')}
+                        {i.clients?.nom_entreprise ?? '—'} · {new Date(i.cree_le).toLocaleDateString('fr-FR')}
                       </p>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${STATUS_COLOR[i.statut]}`}>
-                      {STATUS_LABEL[i.statut]}
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 ${STATUS_COLOR[i.statut] ?? ''}`}>
+                      {STATUS_LABEL[i.statut] ?? i.statut}
                     </span>
                   </Link>
                 ))}
@@ -337,160 +322,60 @@ export function SudoDashboardPage() {
         </div>
       )}
 
-      {/* ===== VITRINE / PRICING ===== */}
-      {tab === 'settings' && configDraft && (
-        <div className="space-y-4">
-          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Contenu public</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={configDraft.hero_title}
-                onChange={(e) => setConfigDraft({ ...configDraft, hero_title: e.target.value })}
-                className="px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                placeholder="Titre principal"
-              />
-              <input
-                value={configDraft.hero_subtitle}
-                onChange={(e) => setConfigDraft({ ...configDraft, hero_subtitle: e.target.value })}
-                className="px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                placeholder="Sous-titre"
-              />
-              <input
-                value={configDraft.contact_email}
-                onChange={(e) => setConfigDraft({ ...configDraft, contact_email: e.target.value })}
-                className="px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                placeholder="Email contact"
-              />
-              <input
-                value={configDraft.contact_phone}
-                onChange={(e) => setConfigDraft({ ...configDraft, contact_phone: e.target.value })}
-                className="px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                placeholder="Telephone contact"
-              />
-              <input
-                value={configDraft.contact_whatsapp}
-                onChange={(e) => setConfigDraft({ ...configDraft, contact_whatsapp: e.target.value })}
-                className="px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                placeholder="WhatsApp (format international)"
-              />
-            </div>
+      {/* ===== ADMINISTRATEURS ===== */}
+      {tab === 'admins' && (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">
+              {stats.adminList.length} administrateur{stats.adminList.length > 1 ? 's' : ''}
+            </p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={13} />
+              Créer un admin
+            </button>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Tarification (tests)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {(['starter', 'medium', 'premium'] as const).map((plan) => (
-                <div key={plan} className="rounded-lg border border-border p-3 space-y-2">
-                  <p className="text-sm font-semibold text-foreground capitalize">{plan}</p>
-                  <input
-                    type="number"
-                    value={configDraft.pricing[plan].price_fcfa}
-                    onChange={(e) => setConfigDraft({
-                      ...configDraft,
-                      pricing: {
-                        ...configDraft.pricing,
-                        [plan]: { ...configDraft.pricing[plan], price_fcfa: Number(e.target.value || 0) },
-                      },
-                    })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                    placeholder="Prix annuel FCFA"
-                  />
-                  <input
-                    type="number"
-                    value={configDraft.pricing[plan].max_equipment}
-                    onChange={(e) => setConfigDraft({
-                      ...configDraft,
-                      pricing: {
-                        ...configDraft.pricing,
-                        [plan]: { ...configDraft.pricing[plan], max_equipment: Number(e.target.value || 0) },
-                      },
-                    })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                    placeholder="Nb equipements"
-                  />
-                  <input
-                    type="number"
-                    value={configDraft.pricing[plan].max_technicians}
-                    onChange={(e) => setConfigDraft({
-                      ...configDraft,
-                      pricing: {
-                        ...configDraft.pricing,
-                        [plan]: { ...configDraft.pricing[plan], max_technicians: Number(e.target.value || 0) },
-                      },
-                    })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm"
-                    placeholder="Nb techniciens"
-                  />
+          {stats.adminList.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">Aucun administrateur</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {stats.adminList.map((admin: any) => (
+                <div key={admin.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-primary">{(admin.prenom?.[0] ?? admin.nom?.[0] ?? '?').toUpperCase()}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{`${admin.prenom ?? ''} ${admin.nom ?? ''}`.trim()}</p>
+                      <p className="text-xs text-muted-foreground truncate">{admin.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                      admin.est_actif
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {admin.est_actif ? 'Actif' : 'Inactif'}
+                    </span>
+                    <button
+                      onClick={() => handleToggleAdmin(admin.id, admin.est_actif)}
+                      className={`text-xs px-2 py-1 rounded border transition-colors ${
+                        admin.est_actif
+                          ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400'
+                          : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400'
+                      }`}
+                    >
+                      {admin.est_actif ? 'Désactiver' : 'Activer'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => saveConfig(configDraft)}
-              disabled={savingConfig}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60"
-            >
-              {savingConfig ? 'Enregistrement…' : 'Enregistrer la configuration'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== ADMINISTRATEURS ===== */}
-      {tab === 'admins' && (
-        <div className="space-y-4">
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">
-                {stats!.adminList.length} administrateur{stats!.adminList.length > 1 ? 's' : ''}
-              </p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
-              >
-                <Plus size={13} />
-                Créer un admin
-              </button>
-            </div>
-
-            {stats!.adminList.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">Aucun administrateur</p>
-            ) : (
-              <div className="divide-y divide-border">
-                {stats!.adminList.map((admin: any) => (
-                  <div key={admin.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-primary">{admin.nom?.[0]?.toUpperCase()}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{admin.nom} {admin.prenom}</p>
-                        <p className="text-xs text-muted-foreground truncate">{admin.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        admin.est_actif
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {admin.est_actif ? 'Actif' : 'Inactif'}
-                      </span>
-                      <button
-                        onClick={() => handleToggleAdmin(admin.id, admin.est_actif)}
-                        className={`text-xs px-2 py-1 rounded border transition-colors ${
-                          admin.est_actif
-                            ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400'
-                            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400'
-                        }`}
-                      >
-                        {admin.est_actif ? 'Désactiver' : 'Activer'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
 
@@ -529,7 +414,7 @@ export function SudoDashboardPage() {
                   </thead>
                   <tbody>
                     {companies.map((c: any) => {
-                      const utilisateur = c['utilisateurs!clients_utilisateur_id_fkey']
+                      const u = c['utilisateurs!clients_utilisateur_id_fkey'] ?? c.utilisateurs
                       return (
                         <tr key={c.id} className="border-b border-border hover:bg-accent/30 transition-colors">
                           <td className="px-4 py-3">
@@ -541,21 +426,17 @@ export function SudoDashboardPage() {
                             <p className="text-xs text-muted-foreground">{c.ville || '—'}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <p className="text-xs text-foreground">{utilisateur ? `${utilisateur.nom} ${utilisateur.prenom ?? ''}`.trim() : '—'}</p>
-                            <p className="text-xs text-muted-foreground">{utilisateur?.email ?? '—'}</p>
+                            <p className="text-xs text-foreground">{u ? `${u.prenom ?? ''} ${u.nom ?? ''}`.trim() || '—' : '—'}</p>
+                            <p className="text-xs text-muted-foreground">{u?.email ?? '—'}</p>
                           </td>
                           <td className="px-4 py-3">
-                            {utilisateur?.compte_valide
+                            {u?.compte_valide
                               ? <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 font-medium">Validée</span>
                               : <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 font-medium">En attente</span>
                             }
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Link
-                              to="/sudo/utilisateurs"
-                              state={{ defaultTab: 'companies' }}
-                              className="text-xs text-primary hover:underline"
-                            >
+                            <Link to="/sudo/utilisateurs" className="text-xs text-primary hover:underline">
                               Gérer
                             </Link>
                           </td>
@@ -573,7 +454,7 @@ export function SudoDashboardPage() {
       {/* ===== EN ATTENTE ===== */}
       {tab === 'pending' && (
         <div className="space-y-3">
-          {(stats?.pendingList?.length ?? 0) === 0 ? (
+          {stats.pendingList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
                 <CheckCircle2 size={22} className="text-emerald-600 dark:text-emerald-400" />
@@ -584,19 +465,19 @@ export function SudoDashboardPage() {
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/30">
                 <p className="text-sm font-semibold text-foreground">
-                  {stats!.pendingList.length} compte{stats!.pendingList.length > 1 ? 's' : ''} à valider
+                  {stats.pendingList.length} compte{stats.pendingList.length > 1 ? 's' : ''} à valider
                 </p>
               </div>
               <div className="divide-y divide-border">
-                {stats!.pendingList.map((user: any) => (
+                {stats.pendingList.map((user: any) => (
                   <div key={user.id} className="px-4 py-3.5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-xs font-bold text-muted-foreground">
-                        {user.nom?.[0]?.toUpperCase() ?? '?'}
+                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 text-xs font-bold text-muted-foreground">
+                        {(user.prenom?.[0] ?? user.nom?.[0] ?? '?').toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {user['clients']?.nom_entreprise ?? `${user.nom} ${user.prenom ?? ''}`.trim()}
+                          {user.clients?.nom_entreprise ?? `${user.prenom ?? ''} ${user.nom ?? ''}`.trim()}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         <p className="text-xs text-primary mt-0.5 capitalize">{user.role}</p>
@@ -640,16 +521,32 @@ export function SudoDashboardPage() {
               <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">{formError}</p>
             )}
             <form onSubmit={handleCreateAdmin} className="space-y-3">
-              {(['full_name', 'email', 'password'] as const).map((field) => (
+              <div className="grid grid-cols-2 gap-2">
                 <input
-                  key={field}
-                  type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
-                  placeholder={field === 'full_name' ? 'Nom complet' : field === 'email' ? 'Email' : 'Mot de passe'}
-                  value={form[field]}
-                  onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
+                  type="text" placeholder="Prénom"
+                  value={form.prenom}
+                  onChange={(e) => setForm((f) => ({ ...f, prenom: e.target.value }))}
                   className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-              ))}
+                <input
+                  type="text" placeholder="Nom"
+                  value={form.nom}
+                  onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <input
+                type="email" placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                type="password" placeholder="Mot de passe (min. 8 caractères)"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
@@ -661,7 +558,7 @@ export function SudoDashboardPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 hover:bg-primary/90 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium disabled:opacity-60 hover:bg-primary/90 transition-colors"
                 >
                   {creating ? 'Création…' : 'Créer'}
                 </button>

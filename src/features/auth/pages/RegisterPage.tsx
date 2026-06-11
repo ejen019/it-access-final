@@ -12,8 +12,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Loader2, Building2, Wrench, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { fetchPublicConfig, type PricingPlanKey } from '@/lib/publicConfig'
-import { useQuery } from '@tanstack/react-query'
+import { PLANS } from '@/lib/plans'
+import type { TypePlan } from '@/types'
 
 type Role = 'client' | 'technicien'
 
@@ -27,16 +27,11 @@ export function RegisterPage() {
   const [companyName, setCompanyName] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState<PricingPlanKey>('starter')
+  const [selectedPlan, setSelectedPlan] = useState<TypePlan>('starter')
   const [confirmedPlan, setConfirmedPlan] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-
-  const { data: publicConfig } = useQuery({
-    queryKey: ['public-config'],
-    queryFn: fetchPublicConfig,
-  })
 
   function selectRole(r: Role) {
     setRole(r)
@@ -130,7 +125,7 @@ export function RegisterPage() {
             <p className="text-sm text-center text-muted-foreground">Vous êtes…</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={() => selectRole('entreprise')}
+                onClick={() => selectRole('client')}
                 className="flex flex-col items-center gap-3 p-6 border-2 border-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
               >
                 <Building2 size={32} className="text-primary" />
@@ -195,36 +190,31 @@ export function RegisterPage() {
                     className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
                   />
                 </div>
-                {publicConfig && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Formule (1 an)</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {(['starter', 'medium', 'premium'] as const).map((plan) => {
-                        const p = publicConfig.pricing[plan]
-                        return (
-                          <button
-                            key={plan}
-                            type="button"
-                            onClick={() => { setSelectedPlan(plan); setConfirmedPlan(false) }}
-                            className={`text-left border rounded-lg p-3 ${selectedPlan === plan ? 'border-primary bg-primary/5' : 'border-border'}`}
-                          >
-                            <p className="text-xs font-semibold text-foreground">{p.label}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{p.price_fcfa.toLocaleString('fr-FR')} FCFA/an</p>
-                            <p className="text-[11px] text-muted-foreground mt-1">{p.max_equipment} equip. · {p.max_technicians} tech.</p>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={confirmedPlan}
-                        onChange={(e) => setConfirmedPlan(e.target.checked)}
-                      />
-                      Je confirme la formule choisie pour 1 an.
-                    </label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Formule souhaitée (1 an)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {PLANS.map((p) => (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => { setSelectedPlan(p.key); setConfirmedPlan(false) }}
+                        className={`text-left border rounded-lg p-3 transition-colors ${selectedPlan === p.key ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <p className="text-xs font-semibold text-foreground">{p.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{p.prix_fcfa.toLocaleString('fr-FR')} FCFA/an</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{p.max_equipements} équip. · {p.max_techniciens} tech.</p>
+                      </button>
+                    ))}
                   </div>
-                )}
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={confirmedPlan}
+                      onChange={(e) => setConfirmedPlan(e.target.checked)}
+                    />
+                    Je confirme la formule choisie. L'administrateur activera le contrat.
+                  </label>
+                </div>
               </div>
             )}
 

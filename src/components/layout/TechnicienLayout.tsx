@@ -33,7 +33,7 @@ export function TechnicienLayout() {
       </header>
 
       <main className="flex-1 overflow-y-auto pb-20">
-        <div className="max-w-2xl mx-auto px-4 py-5">
+        <div className="max-w-2xl mx-auto">
           <Outlet />
         </div>
       </main>

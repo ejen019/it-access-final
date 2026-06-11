@@ -56,17 +56,18 @@ import { ProfilePage } from '../features/users/pages/ProfilePage'
 import { NotFoundPage } from '../components/shared/NotFoundPage'
 import { RootRedirect } from '../components/shared/RootRedirect'
 import { PublicLandingPage } from '../features/public/pages/PublicLandingPage'
+import { RouteError } from '../components/shared/RouteError'
 
 export const router = createBrowserRouter([
   // Redirect racine selon rôle ou page publique
-  { path: '/', element: <RootRedirect /> },
-  { path: '/accueil', element: <PublicLandingPage /> },
+  { path: '/', element: <RootRedirect />, errorElement: <RouteError /> },
+  { path: '/accueil', element: <PublicLandingPage />, errorElement: <RouteError /> },
 
   // Auth publique
-  { path: '/connexion', element: <LoginPage /> },
-  { path: '/inscription', element: <RegisterPage /> },
-  { path: '/mot-de-passe-oublie', element: <ForgotPasswordPage /> },
-  { path: '/reinitialiser-mot-de-passe', element: <ResetPasswordPage /> },
+  { path: '/connexion', element: <LoginPage />, errorElement: <RouteError /> },
+  { path: '/inscription', element: <RegisterPage />, errorElement: <RouteError /> },
+  { path: '/mot-de-passe-oublie', element: <ForgotPasswordPage />, errorElement: <RouteError /> },
+  { path: '/reinitialiser-mot-de-passe', element: <ResetPasswordPage />, errorElement: <RouteError /> },
 
   // Login secret Sudo
   { path: '/sudo', element: <SudoLoginPage /> },
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
         <SudoLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteError />,
     children: [
       { path: 'dashboard',     element: <SudoDashboardPage /> },
       { path: 'utilisateurs',  element: <SudoUsersPage /> },
@@ -99,6 +101,7 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard',        element: <AdminDashboardPage /> },
@@ -122,6 +125,7 @@ export const router = createBrowserRouter([
         <TechnicienLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard',        element: <TechnicienDashboardPage /> },
@@ -142,6 +146,7 @@ export const router = createBrowserRouter([
         <EntrepriseLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard',        element: <EntrepriseDashboardPage /> },

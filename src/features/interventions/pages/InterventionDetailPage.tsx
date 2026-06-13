@@ -8,10 +8,11 @@
 // =============================================================
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 
 import {
   ArrowLeft, AlertTriangle, Play, PenLine, CheckCircle2,
-  Camera, Loader2, Download, Ban, Wrench, Monitor
+  Camera, Loader2, Download, Ban, Wrench, Monitor, Users,
 } from 'lucide-react'
 import SignatureCanvas from 'react-signature-canvas'
 import jsPDF from 'jspdf'
@@ -21,6 +22,7 @@ import {
   useDetailIntervention,
   useChangerStatutIntervention,
   useSignerIntervention,
+  useValiderIntervention,
   uploadPhotoIntervention,
   uploadEtSauvegarderPdf,
 } from '../hooks/useInterventions'
@@ -31,6 +33,7 @@ const SignatureCanvasComponent = (SignatureCanvas as any)?.default ?? SignatureC
 // ----- Helpers visuels -----
 
 const STATUS_LABEL: Record<string, string> = {
+  en_attente: 'En attente de validation',
   planifiee: 'Planifiée',
   en_cours: 'En cours',
   terminee: 'En attente de signature',
@@ -39,6 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_CLASS: Record<string, string> = {
+  en_attente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
@@ -54,6 +58,112 @@ const URGENCY_CLASS: Record<string, string> = {
   faible: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   moyenne: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   critique: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+}
+
+function isEnAttente(inv: any): boolean {
+  return inv?.statut === 'planifiee' && (!inv?.interventions_techniciens || inv.interventions_techniciens.length === 0)
+}
+function displayStatut(inv: any): string {
+  return isEnAttente(inv) ? 'en_attente' : inv?.statut
+}
+
+async function fetchAllTechniciens() {
+  const { data, error } = await supabase
+    .from('techniciens')
+    .select('id, specialite, utilisateurs(nom, prenom, est_actif, compte_valide)')
+  if (error) throw error
+  return (data ?? [])
+    .filter((t: any) => t.utilisateurs?.est_actif !== false && t.utilisateurs?.compte_valide !== false)
+    .map((t: any) => ({
+      techId: t.id,
+      name: `${t.utilisateurs?.prenom ?? ''} ${t.utilisateurs?.nom ?? ''}`.trim() || 'Technicien',
+      specialite: t.specialite as string | null,
+    }))
+}
+
+function ValiderModal({ interventionId, clientId, titre, onClose }: {
+  interventionId: string
+  clientId: string
+  titre: string
+  onClose: () => void
+}) {
+  const [selected, setSelected] = useState<string[]>([])
+  const mutation = useValiderIntervention()
+
+  const { data: techs = [], isLoading } = useQuery({
+    queryKey: ['all-techs'],
+    queryFn: fetchAllTechniciens,
+  })
+
+  function toggle(id: string) {
+    setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  }
+
+  async function handleSubmit() {
+    await mutation.mutateAsync({ interventionId, technicienIds: selected, titre, clientId })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+          <div className="w-9 h-9 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+            <Users size={18} className="text-green-600 dark:text-green-400" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-foreground text-sm leading-tight">Valider & Planifier</h2>
+            <p className="text-xs text-muted-foreground">Affecter un ou plusieurs techniciens</p>
+          </div>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Sélectionnez au moins un technicien pour valider ce signalement de panne. Le client et le technicien seront notifiés.
+          </p>
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 size={18} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : (techs as any[]).length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded-lg">
+              Aucun technicien actif disponible.
+            </p>
+          ) : (
+            <div className="max-h-52 overflow-y-auto space-y-1 border border-border rounded-lg p-2">
+              {(techs as any[]).map(t => (
+                <label key={t.techId} className="flex items-center gap-2.5 text-sm cursor-pointer hover:bg-accent rounded-lg px-2 py-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(t.techId)}
+                    onChange={() => toggle(t.techId)}
+                    className="rounded"
+                  />
+                  <span className="text-foreground font-medium">{t.name}</span>
+                  {t.specialite && <span className="text-muted-foreground text-xs">· {t.specialite}</span>}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-5 pb-5">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={selected.length === 0 || mutation.isPending}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium disabled:opacity-60 transition-colors"
+          >
+            {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Valider
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function formatDate(iso: string | null | undefined) {
@@ -232,6 +342,7 @@ export function InterventionDetailPage() {
   const sigCanvasRef = useRef<any>(null)
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showValiderModal, setShowValiderModal] = useState(false)
 
   const rapport = (intervention as any)?.rapports_intervention?.[0]
 
@@ -261,7 +372,10 @@ export function InterventionDetailPage() {
   }
 
   const statut = (intervention as any).statut
+  const enAttente = isEnAttente(intervention)
+  const ds = displayStatut(intervention)
   const companyName = (intervention as any).clients?.nom_entreprise ?? '—'
+  const clientId = (intervention as any).clients?.id ?? ''
   const validationCodeStored = (intervention as any).clients?.code_signature ?? ''
   const equipmentNames = ((intervention as any).interventions_equipements ?? [])
     .map((ie: any) => ie.equipements?.nom).filter(Boolean)
@@ -396,8 +510,8 @@ export function InterventionDetailPage() {
           <h1 className="text-xl font-bold text-foreground leading-tight">{(intervention as any).titre}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{companyName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[statut]}`}>
-              {STATUS_LABEL[statut]}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[ds] ?? ''}`}>
+              {STATUS_LABEL[ds]}
             </span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${URGENCY_CLASS[(intervention as any).urgence]}`}>
               {URGENCY_LABEL[(intervention as any).urgence]}
@@ -434,11 +548,21 @@ export function InterventionDetailPage() {
         </div>
       </section>
 
+      {/* ——— Bannière En attente (côté client) ——— */}
+      {role === 'client' && enAttente && (
+        <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            Votre signalement est en attente de validation par un administrateur. Vous serez notifié dès qu'un technicien sera affecté.
+          </p>
+        </section>
+      )}
+
       {/* ——— Section Technicien (aussi accessible à l'admin) ——— */}
       {canIntervene && (
         <>
-          {/* Démarrer */}
-          {statut === 'planifiee' && (
+          {/* Démarrer — uniquement si technicien assigné (pas en attente) */}
+          {statut === 'planifiee' && !enAttente && (
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <h2 className="text-sm font-semibold text-foreground">{"Démarrer l'intervention"}</h2>
               <p className="text-sm text-muted-foreground">
@@ -661,29 +785,75 @@ export function InterventionDetailPage() {
 
       {/* ——— Actions Admin ——— */}
       {(role === 'admin' || role === 'super_admin') && (
-        <section className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Actions admin</h2>
-
-          {statut !== 'signee' && statut !== 'annulee' && (
-            <button
-              onClick={() => setShowCancelConfirm(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-destructive text-destructive rounded-lg text-sm hover:bg-destructive/10 transition-colors"
-            >
-              <Ban size={15} />
-              {"Annuler l'intervention"}
-            </button>
+        <>
+          {/* Bloc En attente : valider ou annuler le signalement */}
+          {enAttente && (
+            <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-400">En attente de validation</h2>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Ce signalement de panne n'a pas encore de technicien assigné. Validez-le pour planifier l'intervention, ou annulez-le si le signalement est invalide.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowValiderModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <CheckCircle2 size={15} />
+                  Valider & Planifier
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-destructive text-destructive rounded-lg text-sm hover:bg-destructive/10 transition-colors"
+                >
+                  <Ban size={15} />
+                  Annuler le signalement
+                </button>
+              </div>
+            </section>
           )}
 
-          {rapport?.url_pdf && (
-            <button
-              onClick={handleDownloadPdf}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent transition-colors"
-            >
-              <Download size={15} />
-              Télécharger le compte rendu PDF
-            </button>
-          )}
-        </section>
+          {/* Actions standard (non En attente) */}
+          <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-foreground">Actions admin</h2>
+
+            {!enAttente && statut !== 'signee' && statut !== 'annulee' && (
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-destructive text-destructive rounded-lg text-sm hover:bg-destructive/10 transition-colors"
+              >
+                <Ban size={15} />
+                {"Annuler l'intervention"}
+              </button>
+            )}
+
+            {rapport?.url_pdf && (
+              <button
+                onClick={handleDownloadPdf}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm hover:bg-accent transition-colors"
+              >
+                <Download size={15} />
+                Télécharger le compte rendu PDF
+              </button>
+            )}
+
+            {enAttente && !rapport?.url_pdf && (
+              <p className="text-xs text-muted-foreground text-center">Validez le signalement ci-dessus pour accéder aux actions d'intervention.</p>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Modal Valider & Planifier */}
+      {showValiderModal && (
+        <ValiderModal
+          interventionId={id!}
+          clientId={clientId}
+          titre={(intervention as any).titre}
+          onClose={() => setShowValiderModal(false)}
+        />
       )}
 
       {/* Modal annulation (Admin) */}

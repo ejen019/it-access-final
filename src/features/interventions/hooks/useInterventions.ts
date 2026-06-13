@@ -214,6 +214,47 @@ export function useCreerIntervention() {
   })
 }
 
+export function useValiderIntervention() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ interventionId, technicienIds, titre, clientId }: {
+      interventionId: string
+      technicienIds: string[]
+      titre: string
+      clientId: string
+    }) => {
+      if (technicienIds.length > 0) {
+        const { error } = await supabase.from('interventions_techniciens').insert(
+          technicienIds.map(tid => ({ intervention_id: interventionId, technicien_id: tid }))
+        )
+        if (error) throw error
+      }
+      await Promise.all([
+        notifierClient(clientId, {
+          type: 'intervention_mise_a_jour',
+          titre: 'Panne prise en charge',
+          corps: `"${titre}" a été validée — un technicien va intervenir.`,
+          lien: `/entreprise/interventions/${interventionId}`,
+        }),
+        notifierTechniciens(technicienIds, {
+          type: 'intervention_assignee',
+          titre: 'Nouvelle mission assignée',
+          corps: titre,
+          lien: `/technicien/interventions/${interventionId}`,
+        }),
+      ])
+      return { interventionId, clientId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['intervention-detail', data.interventionId] })
+      queryClient.invalidateQueries({ queryKey: ['interventions-all'] })
+      queryClient.invalidateQueries({ queryKey: ['interventions-client', data.clientId] })
+      queryClient.invalidateQueries({ queryKey: ['interventions-tech'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] })
+    },
+  })
+}
+
 export function useChangerStatutIntervention() {
   const queryClient = useQueryClient()
   return useMutation({

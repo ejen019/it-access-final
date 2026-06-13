@@ -28,7 +28,6 @@ const CONFIG_KEYS = [
     fields: [
       { key: 'email_support', label: 'Email support',   type: 'email', placeholder: 'support@itaccess.com' },
       { key: 'email_contact', label: 'Email contact',   type: 'email', placeholder: 'contact@itaccess.com' },
-      { key: 'telephone',     label: 'Téléphone',       type: 'tel',   placeholder: '+229 00 00 00 00' },
       { key: 'adresse',       label: 'Adresse / pays',  type: 'text',  placeholder: 'Cotonou, Bénin' },
     ],
   },
@@ -46,7 +45,7 @@ const CONFIG_KEYS = [
 
 const DEFAULTS: Record<string, Record<string, string>> = {
   app_info: { nom: 'IT-Access', slogan: 'Gestion de maintenance informatique', version: '1.0.0', site_web: '' },
-  contact:  { email_support: '', email_contact: '', telephone: '', adresse: '' },
+  contact:  { email_support: '', email_contact: '', adresse: '' },
   limites:  { max_admins: '10', duree_session_jours: '30', max_upload_mo: '10' },
 }
 

@@ -17,7 +17,7 @@ async function fetchUtilisateurs(tab: Tab) {
   if (tab === 'pending') {
     const { data, error } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, email, telephone, role, compte_valide, est_actif, cree_le, clients(id, nom_entreprise), techniciens(id, specialite)')
+      .select('id, nom, prenom, email, role, compte_valide, est_actif, cree_le, clients(id, nom_entreprise), techniciens(id, specialite)')
       .eq('compte_valide', false)
       .in('role', ['client', 'technicien'])
       .order('cree_le', { ascending: false })
@@ -27,7 +27,7 @@ async function fetchUtilisateurs(tab: Tab) {
   if (tab === 'companies') {
     const { data, error } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, clients(id, nom_entreprise, ville, secteur)')
+      .select('id, nom, prenom, email, compte_valide, est_actif, cree_le, clients(id, nom_entreprise, ville, secteur)')
       .eq('role', 'client')
       .order('cree_le', { ascending: false })
     if (error) throw error
@@ -35,7 +35,7 @@ async function fetchUtilisateurs(tab: Tab) {
   }
   const { data, error } = await supabase
     .from('utilisateurs')
-    .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, techniciens(id, specialite)')
+    .select('id, nom, prenom, email, compte_valide, est_actif, cree_le, techniciens(id, specialite)')
     .eq('role', 'technicien')
     .order('cree_le', { ascending: false })
   if (error) throw error
@@ -171,7 +171,6 @@ export function UsersPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Nom / Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase hidden md:table-cell">Téléphone</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Statut</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase hidden lg:table-cell">Depuis</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
@@ -188,9 +187,6 @@ export function UsersPage() {
                       {tab === 'technicians' && user.techniciens?.specialite && (
                         <p className="text-xs text-primary mt-0.5">{user.techniciens.specialite}</p>
                       )}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-xs text-muted-foreground">{user.telephone ?? '—'}</p>
                     </td>
                     <td className="px-4 py-3">
                       {!user.compte_valide

@@ -480,6 +480,14 @@ export function InterventionDetailPage() {
   // ----- Action Admin : annuler -----
 
   async function handleCancel() {
+    // Si c'est un signalement de panne (en attente), remettre l'équipement en service
+    if (enAttente && intervention) {
+      const equipIds = (intervention as any).interventions_equipements
+        ?.map((ie: any) => ie.equipement_id).filter(Boolean) ?? []
+      if (equipIds.length > 0) {
+        await supabase.from('equipements').update({ etat: 'operationnel' }).in('id', equipIds)
+      }
+    }
     await updateStatus.mutateAsync({ id: id!, statut: 'annulee' })
     setShowCancelConfirm(false)
   }

@@ -13,7 +13,6 @@ export function RegisterPage() {
 
   const [fullName, setFullName]         = useState('')
   const [email, setEmail]               = useState('')
-  const [phone, setPhone]               = useState('')
   const [companyName, setCompanyName]   = useState('')
   const [password, setPassword]         = useState('')
   const [showPassword, setShow]         = useState(false)
@@ -37,7 +36,7 @@ export function RegisterPage() {
       const { data, error: fnError } = await supabase.functions.invoke('register-user', {
         body: {
           email: email.trim().toLowerCase(), password,
-          nom: fullName.trim(), telephone: phone.trim() || null, role,
+          nom: fullName.trim(), role,
           nom_entreprise: role === 'client' ? companyName.trim() : undefined,
           selected_plan:  role === 'client' ? selectedPlan : undefined,
         },
@@ -160,9 +159,7 @@ export function RegisterPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4 bg-card border border-border rounded-2xl p-6">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  {role === 'client' ? 'Nom du responsable *' : 'Nom complet *'}
-                </label>
+                <label className="text-sm font-medium text-foreground">Nom complet *</label>
                 <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required
                   className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
               </div>
@@ -196,18 +193,10 @@ export function RegisterPage() {
                 </>
               )}
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Téléphone</label>
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+229 90 00 00 00"
-                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Adresse email *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email"
-                    className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Adresse email *</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email"
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
               </div>
 
               <div className="space-y-1.5">

@@ -43,9 +43,6 @@ const STATUS_CLASS: Record<string, string> = {
   signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
 }
-const URGENCY_DOT: Record<string, string> = {
-  faible: 'bg-emerald-400', moyenne: 'bg-amber-400', critique: 'bg-red-500',
-}
 
 export function TechnicienDashboardPage() {
   const { profile } = useAuthStore()
@@ -61,7 +58,6 @@ export function TechnicienDashboardPage() {
   const cloturees = interventions.filter((i: any) => i.statut === 'signee').length
   const urgentes  = interventions.filter((i: any) => i.urgence === 'critique' && ['planifiee', 'en_cours'].includes(i.statut))
   const annulees  = interventions.filter((i: any) => i.statut === 'annulee').length
-  const recentes  = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   return (
     <div className="p-4 space-y-5 page-transition">
@@ -103,6 +99,10 @@ export function TechnicienDashboardPage() {
           <StatCard icon={Clock}  label="En attente signature" value={enAttente} alert />
           <StatCard icon={Wrench} label="Clôturées"            value={cloturees} />
         </div>
+        <Link to="/technicien/interventions"
+          className="mt-3 flex items-center justify-center gap-1.5 text-xs text-primary hover:underline">
+          Voir toutes mes missions <ArrowRight size={11} />
+        </Link>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <DonutChart
@@ -166,33 +166,6 @@ export function TechnicienDashboardPage() {
         </div>
       </div>
 
-      {/* Missions récentes */}
-      {recentes.length > 0 && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <p className="text-xs font-semibold text-foreground">Récentes</p>
-            <Link to="/technicien/interventions"
-              className="text-xs text-primary hover:underline flex items-center gap-1">
-              Tout voir <ArrowRight size={11} />
-            </Link>
-          </div>
-          <div className="divide-y divide-border">
-            {recentes.map((inv: any) => (
-              <Link
-                key={inv.id}
-                to={`/technicien/interventions/${inv.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgence] ?? 'bg-border'}`} />
-                <p className="text-sm text-foreground flex-1 truncate">{inv.titre}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[inv.statut] ?? ''}`}>
-                  {STATUS_LABEL[inv.statut]}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -63,9 +63,9 @@ export function ProfilePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [nom, setNom] = useState(profile?.nom ?? '')
-  const [prenom, setPrenom] = useState(profile?.prenom ?? '')
-  const [telephone, setTelephone] = useState(profile?.telephone ?? '')
+  const [nomComplet, setNomComplet] = useState(
+    (`${profile?.prenom ?? ''} ${profile?.nom ?? ''}`).trim() || (profile?.nom ?? '')
+  )
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
@@ -85,9 +85,7 @@ export function ProfilePage() {
 
   useEffect(() => {
     if (profile) {
-      setNom(profile.nom)
-      setPrenom(profile.prenom ?? '')
-      setTelephone(profile.telephone ?? '')
+      setNomComplet((`${profile.prenom ?? ''} ${profile.nom ?? ''}`).trim() || profile.nom)
     }
   }, [profile?.id])
 
@@ -96,7 +94,7 @@ export function ProfilePage() {
     setProfileSaving(true)
     await supabase
       .from('utilisateurs')
-      .update({ nom: nom.trim(), prenom: prenom.trim() || null, telephone: telephone.trim() || null })
+      .update({ nom: nomComplet.trim(), prenom: null })
       .eq('id', profile!.id)
     queryClient.invalidateQueries({ queryKey: ['auth-profile'] })
     setProfileSaving(false)
@@ -189,34 +187,16 @@ export function ProfilePage() {
           <h2 className="font-semibold text-foreground text-sm">Informations personnelles</h2>
         </div>
         <form onSubmit={handleSaveProfile} className="p-5 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Prénom</label>
-              <input
-                type="text"
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Nom</label>
-              <input
-                type="text"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                required
-                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">{profile?.email}</p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Téléphone</label>
+            <label className="text-sm font-medium text-foreground">Nom complet</label>
             <input
-              type="tel"
-              value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
-              placeholder="+229 XX XX XX XX"
+              type="text"
+              value={nomComplet}
+              onChange={(e) => setNomComplet(e.target.value)}
+              required
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

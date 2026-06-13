@@ -1,6 +1,5 @@
 // =============================================================
 // NotificationBell — cloche avec badge de comptage
-// Actualisation automatique toutes les 60 secondes.
 // =============================================================
 import { Bell } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -9,6 +8,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import type { Notification } from '@/types'
+
+const TYPE_DOT: Record<string, string> = {
+  nouvelle_intervention:      'bg-blue-500',
+  intervention_assignee:      'bg-blue-500',
+  intervention_mise_a_jour:   'bg-amber-500',
+  compte_valide:               'bg-emerald-500',
+  nouveau_message:             'bg-violet-500',
+  nouveau_compte_en_attente:   'bg-orange-500',
+}
 
 export function NotificationBell() {
   const { profile } = useAuthStore()
@@ -22,9 +30,9 @@ export function NotificationBell() {
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', profile.id)
-        .eq('is_read', false)
-        .order('created_at', { ascending: false })
+        .eq('utilisateur_id', profile.id)
+        .eq('est_lu', false)
+        .order('cree_le', { ascending: false })
         .limit(20)
       return (data ?? []) as Notification[]
     },
@@ -32,22 +40,19 @@ export function NotificationBell() {
     refetchInterval: 60_000,
   })
 
-  // Realtime : nouvelle notification → invalider le cache immédiatement
   useEffect(() => {
     if (!profile?.id) return
-
     const channel = supabase
       .channel(`notifications:${profile.id}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'notifications',
-        filter: `user_id=eq.${profile.id}`,
+        filter: `utilisateur_id=eq.${profile.id}`,
       }, () => {
         queryClient.invalidateQueries({ queryKey: ['notifications', profile.id] })
       })
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [profile?.id, queryClient])
 
@@ -55,7 +60,7 @@ export function NotificationBell() {
 
   async function markAllRead() {
     if (!profile) return
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', profile.id)
+    await supabase.from('notifications').update({ est_lu: true }).eq('utilisateur_id', profile.id)
     queryClient.invalidateQueries({ queryKey: ['notifications', profile.id] })
   }
 
@@ -119,21 +124,32 @@ function NotifItem({
   const navigate = useNavigate()
 
   async function handleClick() {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id)
+    await supabase.from('notifications').update({ est_lu: true }).eq('id', notif.id)
     onRead()
-    if (notif.link) navigate(notif.link)
+    if (notif.lien) navigate(notif.lien)
     onClose()
   }
 
+  const dot = TYPE_DOT[notif.type] ?? 'bg-muted-foreground/50'
+
+  function formatTs(iso: string) {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffMin = Math.floor((now.getTime() - d.getTime()) / 60_000)
+    if (diffMin < 1) return "À l'instant"
+    if (diffMin < 60) return `il y a ${diffMin} min`
+    if (diffMin < 1440) return `il y a ${Math.floor(diffMin / 60)} h`
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  }
+
   return (
-    <button onClick={handleClick} className="w-full text-left px-4 py-3 hover:bg-accent transition-colors">
-      <p className="text-sm font-medium text-foreground line-clamp-1">{notif.title}</p>
-      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.body}</p>
-      <p className="text-xs text-muted-foreground/60 mt-1">
-        {new Date(notif.created_at).toLocaleDateString('fr-FR', {
-          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-        })}
-      </p>
+    <button onClick={handleClick} className="w-full text-left px-4 py-3 hover:bg-accent transition-colors flex items-start gap-3">
+      <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground line-clamp-1">{notif.titre}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.corps}</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">{formatTs(notif.cree_le)}</p>
+      </div>
     </button>
   )
 }

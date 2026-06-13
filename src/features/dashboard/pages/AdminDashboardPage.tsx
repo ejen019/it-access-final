@@ -34,15 +34,12 @@ async function fetchAdminStats() {
     supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'en_cours'),
     supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'terminee'),
     supabase.from('interventions').select('*', { count: 'exact', head: true }).eq('statut', 'signee'),
-    supabase.from('interventions')
-      .select('id, titre, urgence, statut, cree_le, clients(nom_entreprise)')
-      .order('cree_le', { ascending: false }).limit(5),
   ])
   // Throw on the first error so React Query surfaces it
   for (const r of results) {
     if (r.error) throw r.error
   }
-  const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12] = results
+  const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] = results
   const totalEquipment = r5.count ?? 0
   const brokenEquipment = r6.count ?? 0
   const maintenanceEquipment = r7.count ?? 0
@@ -60,7 +57,6 @@ async function fetchAdminStats() {
     intEnCours:            r9.count ?? 0,
     intTerminee:           r10.count ?? 0,
     intSignee:             r11.count ?? 0,
-    recentInterventions:   r12.data ?? [],
   }
 }
 
@@ -76,9 +72,6 @@ const STATUS_CLASS: Record<string, string> = {
   terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
   signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
   annulee: 'bg-muted text-muted-foreground',
-}
-const URGENCY_DOT: Record<string, string> = {
-  faible: 'bg-emerald-400', moyenne: 'bg-amber-400', critique: 'bg-red-500',
 }
 
 function StatCard({ icon: Icon, label, value, sub, alert }: {
@@ -212,38 +205,13 @@ export function AdminDashboardPage() {
             </Link>
           ))}
         </div>
+        <Link
+          to="/admin/interventions"
+          className="mt-3 flex items-center justify-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          Voir toutes les interventions <ArrowRight size={11} />
+        </Link>
       </div>
-
-      {/* Interventions récentes */}
-      {s.recentInterventions.length > 0 && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <p className="text-xs font-semibold text-foreground">Interventions récentes</p>
-            <Link to="/admin/interventions"
-              className="text-xs text-primary hover:underline flex items-center gap-1">
-              Voir tout <ArrowRight size={11} />
-            </Link>
-          </div>
-          <div className="divide-y divide-border">
-            {s.recentInterventions.map((inv: any) => (
-              <Link
-                key={inv.id}
-                to={`/admin/interventions/${inv.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${URGENCY_DOT[inv.urgence] ?? 'bg-muted-foreground'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{inv.titre}</p>
-                  <p className="text-xs text-muted-foreground">{inv.clients?.nom_entreprise ?? '—'}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.statut] ?? ''}`}>
-                  {STATUS_LABEL[inv.statut] ?? inv.statut}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

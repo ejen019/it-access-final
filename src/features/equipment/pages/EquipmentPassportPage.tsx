@@ -75,6 +75,7 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
           await supabase.from('notifications').insert(
             admins.map((a: any) => ({
               utilisateur_id: a.id,
+              type: 'nouvelle_intervention',
               titre: `Panne signalée — ${equipment.clients?.nom_entreprise}`,
               corps: `${equipment.nom} : ${description.slice(0, 80)}`,
               lien: '/admin/interventions',
@@ -148,10 +149,12 @@ export function EquipmentPassportPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useAuthStore()
+  const queryClient = useQueryClient()
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [showQr, setShowQr] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [showPanne, setShowPanne] = useState(false)
+  const [remettrePending, setRemettrePending] = useState(false)
 
   const { data: equipment, isLoading } = useEquipementDetail(id)
   const { data: interventions = [] } = useQuery({
@@ -193,6 +196,34 @@ export function EquipmentPassportPage() {
 
   const canEdit = ['admin', 'super_admin', 'client'].includes(profile?.role ?? '')
   const canSignalPanne = profile?.role === 'client' && equipment.etat === 'operationnel'
+  const canRemettreEnService = profile?.role === 'client' && equipment.etat === 'en_panne'
+
+  async function handleRemettreEnService() {
+    if (!equipment || !id) return
+    setRemettrePending(true)
+    try {
+      await supabase.from('equipements').update({ etat: 'operationnel' }).eq('id', id)
+      // Annuler les interventions actives liées à cet équipement
+      const { data: links } = await supabase
+        .from('interventions_equipements')
+        .select('intervention_id')
+        .eq('equipement_id', id)
+      const interventionIds = (links ?? []).map((l: any) => l.intervention_id)
+      if (interventionIds.length > 0) {
+        await supabase
+          .from('interventions')
+          .update({ statut: 'annulee' })
+          .in('id', interventionIds)
+          .in('statut', ['planifiee', 'en_cours'])
+      }
+      queryClient.invalidateQueries({ queryKey: ['equipement-detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['equipements', equipment.client_id] })
+      queryClient.invalidateQueries({ queryKey: ['interventions-client'] })
+      queryClient.invalidateQueries({ queryKey: ['interventions-all'] })
+    } finally {
+      setRemettrePending(false)
+    }
+  }
 
   return (
     <div className="page-transition">
@@ -234,6 +265,15 @@ export function EquipmentPassportPage() {
             >
               <AlertTriangle size={14} />
               Signaler une panne
+            </button>
+          )}
+          {canRemettreEnService && (
+            <button
+              onClick={handleRemettreEnService}
+              disabled={remettrePending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-full text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-60"
+            >
+              {remettrePending ? '…' : '✓'} Remettre en service
             </button>
           )}
         </div>

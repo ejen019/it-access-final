@@ -20,7 +20,7 @@ async function fetchUsers(tab: Tab) {
   if (tab === 'pending') {
     const { data, error } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, email, telephone, role, compte_valide, est_actif, cree_le')
+      .select('id, nom, prenom, email, role, compte_valide, est_actif, cree_le')
       .eq('compte_valide', false)
       .in('role', ['client', 'technicien'])
       .order('cree_le', { ascending: false })
@@ -31,7 +31,7 @@ async function fetchUsers(tab: Tab) {
   if (tab === 'companies') {
     const { data, error } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, clients(id, nom_entreprise, ville, secteur)')
+      .select('id, nom, prenom, email, compte_valide, est_actif, cree_le, clients(id, nom_entreprise, ville, secteur)')
       .eq('role', 'client')
       .order('cree_le', { ascending: false })
     if (error) throw error
@@ -41,7 +41,7 @@ async function fetchUsers(tab: Tab) {
   if (tab === 'technicians') {
     const { data, error } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le, techniciens(id, specialite)')
+      .select('id, nom, prenom, email, compte_valide, est_actif, cree_le, techniciens(id, specialite)')
       .eq('role', 'technicien')
       .order('cree_le', { ascending: false })
     if (error) throw error
@@ -51,7 +51,7 @@ async function fetchUsers(tab: Tab) {
   // admins
   const { data, error } = await supabase
     .from('utilisateurs')
-    .select('id, nom, prenom, email, telephone, compte_valide, est_actif, cree_le')
+    .select('id, nom, prenom, email, compte_valide, est_actif, cree_le')
     .eq('role', 'admin')
     .order('cree_le', { ascending: false })
   if (error) throw error
@@ -239,7 +239,7 @@ export function SudoUsersPage() {
                           ? (user.clients?.nom_entreprise ?? '—')
                           : tab === 'technicians'
                           ? (user.techniciens?.specialite ?? '—')
-                          : (user.telephone ?? '—')}
+                          : '—'}
                       </p>
                     </td>
                     <td className="px-4 py-3">

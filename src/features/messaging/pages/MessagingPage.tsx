@@ -518,6 +518,11 @@ export function MessagingPage() {
     fetchUnreadCounts(profile.id).then(setUnreadCounts)
   }, [profile?.id])
 
+  const refreshContacts = useCallback(() => {
+    if (!profile) return
+    fetchContacts().then(setContacts)
+  }, [profile?.id])
+
   useEffect(() => {
     if (!profile) return
     fetchContacts().then((c) => {
@@ -526,6 +531,26 @@ export function MessagingPage() {
     })
     refreshUnread()
   }, [profile?.id, refreshUnread])
+
+  // Liste de contacts en temps réel : une intervention planifiée fait apparaître
+  // le contact (entreprise/technicien), une signature le fait disparaître.
+  useEffect(() => {
+    if (!profile) return
+    const channel = supabase
+      .channel(`contacts:${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'interventions' },
+        () => refreshContacts()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `utilisateur_id=eq.${profile.id}` },
+        () => refreshContacts()
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, refreshContacts])
 
   // Met à jour le compteur global de non-lus en temps réel
   useEffect(() => {

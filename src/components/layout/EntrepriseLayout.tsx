@@ -1,5 +1,6 @@
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Monitor, Wrench, MessageSquare, User, LogOut } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
@@ -17,6 +18,21 @@ export function EntrepriseLayout() {
   const navigate = useNavigate()
   const initial = (profile?.prenom?.[0] ?? profile?.nom?.[0] ?? 'E').toUpperCase()
   const displayName = `${profile?.prenom ?? ''} ${profile?.nom ?? ''}`.trim() || 'Entreprise'
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications', profile?.id],
+    queryFn: async () => {
+      if (!profile) return 0
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('utilisateur_id', profile.id)
+        .eq('est_lu', false)
+      return count ?? 0
+    },
+    enabled: !!profile,
+    refetchInterval: 60_000,
+  })
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -114,7 +130,12 @@ export function EntrepriseLayout() {
           >
             {({ isActive }) => (
               <>
-                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+                <span className="relative">
+                  <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+                  {unreadCount > 0 && to === '/entreprise/dashboard' && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </span>
                 <span className={`text-[10px] truncate ${isActive ? 'font-semibold' : 'font-normal'}`}>{label}</span>
               </>
             )}

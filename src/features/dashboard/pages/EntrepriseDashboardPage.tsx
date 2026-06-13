@@ -93,7 +93,6 @@ export function EntrepriseDashboardPage() {
   const planifiees   = interventions.filter((i: any) => i.statut === 'planifiee').length
   const enCours      = interventions.filter((i: any) => i.statut === 'en_cours').length
   const cloturees    = interventions.filter((i: any) => i.statut === 'signee').length
-  const recentes     = [...interventions].sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime()).slice(0, 4)
 
   async function copyCode() {
     if (!client?.code_signature) return
@@ -162,6 +161,10 @@ export function EntrepriseDashboardPage() {
           alert={activeInterv > 0}
         />
       </div>
+      <Link to="/entreprise/interventions"
+        className="flex items-center justify-center gap-1.5 text-xs text-primary hover:underline">
+        Voir toutes mes interventions <ArrowRight size={11} />
+      </Link>
       <div className="grid gap-3 md:grid-cols-2">
         <DonutChart
           title="Mon parc par état"
@@ -259,29 +262,6 @@ export function EntrepriseDashboardPage() {
         </div>
       )}
 
-      {/* Interventions récentes */}
-      {recentes.length > 0 && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <p className="text-xs font-semibold text-foreground">Interventions récentes</p>
-            <Link to="/entreprise/interventions"
-              className="text-xs text-primary hover:underline flex items-center gap-1">
-              Tout voir <ArrowRight size={11} />
-            </Link>
-          </div>
-          <div className="divide-y divide-border">
-            {recentes.map((inv: any) => (
-              <Link key={inv.id} to={`/entreprise/interventions/${inv.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors">
-                <p className="text-sm text-foreground flex-1 truncate">{inv.titre}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_CLASS[inv.statut] ?? ''}`}>
-                  {STATUS_LABEL[inv.statut]}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

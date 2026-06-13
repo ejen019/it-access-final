@@ -40,7 +40,7 @@ export function NetworkBanner() {
           {isOffline ? (
             <>
               <WifiOff size={14} />
-              Pas de connexion — certaines fonctionnalités sont indisponibles
+              Hors ligne — données en cache, modifications suspendues
             </>
           ) : (
             <>

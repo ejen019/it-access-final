@@ -232,6 +232,50 @@ export function ScanPage() {
           </button>
         </form>
       </div>
+
+      {/* Identification équipement — note technique */}
+      <div className="max-w-sm mx-auto rounded-xl border border-border bg-card p-4 space-y-3">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Identification des équipements</p>
+
+        {/* QR Code — méthode principale */}
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <QrCode size={16} className="text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-[13px] font-medium text-foreground">QR Code</p>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Principal</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Identifiant universel, imprimable et sans matériel spécifique. Chaque équipement génère son QR unique depuis son passeport.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* NFC — option non disponible */}
+        <div className="flex items-start gap-3 opacity-60">
+          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-muted-foreground">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.3"/>
+              <path d="M8.5 8.5C9.5 7.5 10.7 7 12 7s2.5.5 3.5 1.5"/>
+              <path d="M6 6C7.7 4.3 9.7 3.5 12 3.5s4.3.8 6 2.5"/>
+              <circle cx="12" cy="15" r="1.5"/>
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-[13px] font-medium text-foreground">Tag NFC</p>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Non disponible</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Nécessite des tags NFC physiques programmés + Chrome Android 89+. Non déployé dans ce prototype faute de matériel.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

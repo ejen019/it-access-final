@@ -3,6 +3,7 @@ import {
   Monitor, Wrench, QrCode, FileText, MessageSquare,
   Shield, ArrowRight, CheckCircle2, ChevronRight,
   BarChart2, Clock, Users, Mail, MapPin, HelpCircle,
+  ScanLine, PenLine, Smartphone, Sparkles,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -89,7 +90,7 @@ export function PublicLandingPage() {
       <main className="max-w-5xl mx-auto px-4">
 
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden pt-10 pb-16 text-center space-y-6">
+        <section className="relative overflow-hidden pt-10 pb-16 text-center">
           {/* Background blobs */}
           <div className="absolute inset-0 pointer-events-none -z-10">
             <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-primary/10 blur-[80px]" />
@@ -97,20 +98,48 @@ export function PublicLandingPage() {
             <div className="absolute top-1/3 -right-20 w-72 h-72 rounded-full bg-primary/6 blur-[70px]" />
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground leading-tight max-w-2xl mx-auto tracking-tight">
-            Gérez votre parc IT
-            <span className="text-primary block">simplement.</span>
-          </h1>
-          <p className="text-muted-foreground text-base max-w-lg mx-auto leading-relaxed">
-            IT-Access centralise équipements, interventions et contrats de maintenance en une seule plateforme, accessible partout.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link to="/inscription" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
-              Démarrer gratuitement
-            </Link>
-            <Link to="/connexion" className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-              J'ai déjà un compte <ChevronRight size={15} />
-            </Link>
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+              <Sparkles size={12} />
+              Plateforme nouvelle génération
+            </div>
+
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight max-w-2xl mx-auto tracking-tight">
+              Gérez votre parc IT
+              <span className="text-primary block">simplement.</span>
+            </h1>
+
+            <p className="text-muted-foreground text-base max-w-lg mx-auto leading-relaxed">
+              IT-Access centralise équipements, interventions et contrats de maintenance en une seule plateforme, accessible partout.
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link to="/inscription" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
+                Démarrer gratuitement <ArrowRight size={15} />
+              </Link>
+              <Link to="/connexion" className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                J'ai déjà un compte <ChevronRight size={15} />
+              </Link>
+            </div>
+
+            <p className="text-xs text-muted-foreground">À partir de 50 000 FCFA / an — sans engagement</p>
+
+            {/* Feature stripe */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
+              {[
+                { icon: ScanLine,   label: 'Scan QR < 10s' },
+                { icon: PenLine,    label: 'Signature électronique' },
+                { icon: Smartphone, label: 'PWA hors-ligne' },
+                { icon: Sparkles,   label: 'Import IA du parc' },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="rounded-2xl bg-card border border-border p-4 flex flex-col items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+                    <Icon size={16} className="text-primary" />
+                  </div>
+                  <p className="text-xs font-medium text-center text-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

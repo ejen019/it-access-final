@@ -561,8 +561,8 @@ export function InterventionDetailPage() {
       {/* ——— Section Technicien (aussi accessible à l'admin) ——— */}
       {canIntervene && (
         <>
-          {/* Démarrer — uniquement si technicien assigné (pas en attente) */}
-          {statut === 'planifiee' && !enAttente && (
+          {/* Démarrer — masqué pour admin si aucun technicien assigné (en attente de validation) */}
+          {statut === 'planifiee' && !(enAttente && (role === 'admin' || role === 'super_admin')) && (
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <h2 className="text-sm font-semibold text-foreground">{"Démarrer l'intervention"}</h2>
               <p className="text-sm text-muted-foreground">

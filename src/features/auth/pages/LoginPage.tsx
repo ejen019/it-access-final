@@ -84,7 +84,6 @@ export function LoginPage() {
             {/* Séparateur */}
             <div className="mt-8 w-12 h-0.5 bg-primary-foreground/30 rounded-full" />
 
-            {/* Points clés en noir sur fond blanc */}
             <div className="mt-6 space-y-2">
               {[
                 'Passeport QR pour chaque équipement',
@@ -92,9 +91,9 @@ export function LoginPage() {
                 'Rapports PDF horodatés',
               ].map((text) => (
                 <div key={text}
-                  className="flex items-center gap-3 bg-white rounded-lg px-4 py-2.5 shadow-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                  <span className="text-xs font-medium text-gray-800">{text}</span>
+                  className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-lg px-4 py-2.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground/60 flex-shrink-0" />
+                  <span className="text-xs font-medium text-primary-foreground/85">{text}</span>
                 </div>
               ))}
             </div>

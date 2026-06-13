@@ -409,56 +409,64 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Contacts de messagerie selon le rôle (contourne la RLS util_select de façon contrôlée).
 -- admin/super_admin : clients + techniciens valides.
--- technicien : admins + entreprises liées à une intervention active assignée.
--- client : admins + techniciens affectés à une intervention active.
+-- technicien : admins seulement (pas super_admin) + entreprises liées à une intervention active assignée.
+-- client : admins seulement (pas super_admin) + techniciens affectés à une intervention active.
 CREATE OR REPLACE FUNCTION mes_contacts_messagerie()
-RETURNS TABLE (id uuid, nom text, prenom text, role text, email text)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
+RETURNS TABLE(id uuid, nom text, prenom text, role text, email text)
+LANGUAGE plpgsql SECURITY DEFINER
 AS $$
 DECLARE
-  v_uid  uuid := auth.uid();
-  v_role text := mon_role();
+  caller_role text;
+  caller_id   uuid;
 BEGIN
-  IF v_role IN ('admin', 'super_admin') THEN
+  caller_id   := auth.uid();
+  caller_role := mon_role();
+
+  IF caller_role IN ('admin', 'super_admin') THEN
     RETURN QUERY
-      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      SELECT u.id, u.nom, u.prenom, u.role::text, u.email
       FROM utilisateurs u
       WHERE u.role IN ('client', 'technicien')
-        AND u.compte_valide = true AND u.est_actif = true;
+        AND u.est_actif = true
+        AND u.compte_valide = true
+        AND u.id <> caller_id;
 
-  ELSIF v_role = 'technicien' THEN
+  ELSIF caller_role = 'technicien' THEN
     RETURN QUERY
-      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      SELECT u.id, u.nom, u.prenom, u.role::text, u.email
       FROM utilisateurs u
-      WHERE u.role IN ('admin', 'super_admin') AND u.est_actif = true;
-
-    RETURN QUERY
-      SELECT DISTINCT u.id, u.nom, u.prenom, u.role, u.email
-      FROM interventions i
-      JOIN interventions_techniciens it ON it.intervention_id = i.id
-      JOIN techniciens t ON t.id = it.technicien_id
-      JOIN clients c ON c.id = i.client_id
-      JOIN utilisateurs u ON u.id = c.utilisateur_id
-      WHERE t.utilisateur_id = v_uid
-        AND i.statut NOT IN ('signee', 'annulee');
-
-  ELSIF v_role = 'client' THEN
-    RETURN QUERY
-      SELECT u.id, u.nom, u.prenom, u.role, u.email
+      WHERE u.role = 'admin'
+        AND u.est_actif = true
+        AND u.compte_valide = true
+      UNION
+      SELECT DISTINCT u.id, u.nom, u.prenom, u.role::text, u.email
       FROM utilisateurs u
-      WHERE u.role IN ('admin', 'super_admin') AND u.est_actif = true;
-
-    RETURN QUERY
-      SELECT DISTINCT u.id, u.nom, u.prenom, u.role, u.email
-      FROM interventions i
-      JOIN clients c ON c.id = i.client_id
+      JOIN clients c ON c.utilisateur_id = u.id
+      JOIN interventions i ON i.client_id = c.id
       JOIN interventions_techniciens it ON it.intervention_id = i.id
-      JOIN techniciens t ON t.id = it.technicien_id
-      JOIN utilisateurs u ON u.id = t.utilisateur_id
-      WHERE c.utilisateur_id = v_uid
-        AND i.statut NOT IN ('signee', 'annulee');
+      JOIN techniciens t ON t.utilisateur_id = caller_id AND t.id = it.technicien_id
+      WHERE u.role = 'client'
+        AND i.statut NOT IN ('signee', 'annulee')
+        AND u.est_actif = true;
+
+  ELSIF caller_role = 'client' THEN
+    RETURN QUERY
+      SELECT u.id, u.nom, u.prenom, u.role::text, u.email
+      FROM utilisateurs u
+      WHERE u.role = 'admin'
+        AND u.est_actif = true
+        AND u.compte_valide = true
+      UNION
+      SELECT DISTINCT u.id, u.nom, u.prenom, u.role::text, u.email
+      FROM utilisateurs u
+      JOIN techniciens t ON t.utilisateur_id = u.id
+      JOIN interventions_techniciens it ON it.technicien_id = t.id
+      JOIN interventions i ON i.id = it.intervention_id
+      JOIN clients cl ON cl.id = i.client_id AND cl.utilisateur_id = caller_id
+      WHERE u.role = 'technicien'
+        AND i.statut NOT IN ('signee', 'annulee')
+        AND u.est_actif = true;
+
   END IF;
 END;
 $$;

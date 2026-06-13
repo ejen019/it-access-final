@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import {
   Monitor, Wrench, QrCode, FileText, MessageSquare,
   Shield, ArrowRight, CheckCircle2, ChevronRight,
-  BarChart2, Clock, Users,
+  BarChart2, Clock, Users, Mail, MapPin, HelpCircle,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -60,16 +60,21 @@ const STATS = [
 export function PublicLandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <header className="sticky top-0 z-20 bg-card/90 backdrop-blur-md border-b border-border">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
-          </Link>
-          <nav className="hidden sm:flex items-center gap-6 text-[13px] text-muted-foreground">
-            <a href="#fonctionnalites" className="hover:text-foreground transition-colors">Fonctionnalités</a>
-            <a href="#tarifs" className="hover:text-foreground transition-colors">Tarifs</a>
-          </nav>
+          {/* Left : brand + nav links (desktop) */}
+          <div className="flex items-center gap-6">
+            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
+            </Link>
+            <nav className="hidden md:flex items-center gap-5 text-[13px] text-muted-foreground">
+              <a href="#fonctionnalites" className="hover:text-foreground transition-colors">Fonctionnalités</a>
+              <a href="#tarifs" className="hover:text-foreground transition-colors">Tarifs</a>
+            </nav>
+          </div>
+          {/* Right : auth buttons */}
           <div className="flex items-center gap-2">
             <Link to="/connexion" className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors">
               Connexion
@@ -83,8 +88,15 @@ export function PublicLandingPage() {
 
       <main className="max-w-5xl mx-auto px-4">
 
-        {/* Hero */}
-        <section className="pt-10 pb-16 text-center space-y-6">
+        {/* ── Hero ── */}
+        <section className="relative overflow-hidden pt-10 pb-16 text-center space-y-6">
+          {/* Background blobs */}
+          <div className="absolute inset-0 pointer-events-none -z-10">
+            <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-primary/10 blur-[80px]" />
+            <div className="absolute top-1/2 -left-20 w-64 h-64 rounded-full bg-primary/8 blur-[60px]" />
+            <div className="absolute top-1/3 -right-20 w-72 h-72 rounded-full bg-primary/6 blur-[70px]" />
+          </div>
+
           <h1 className="text-4xl md:text-5xl font-bold text-foreground leading-tight max-w-2xl mx-auto tracking-tight">
             Gérez votre parc IT
             <span className="text-primary block">simplement.</span>
@@ -94,7 +106,7 @@ export function PublicLandingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link to="/inscription" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
-              Démarrer gratuitement 
+              Démarrer gratuitement
             </Link>
             <Link to="/connexion" className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
               J'ai déjà un compte <ChevronRight size={15} />
@@ -102,7 +114,7 @@ export function PublicLandingPage() {
           </div>
         </section>
 
-        {/* Stats */}
+        {/* ── Stats ── */}
         <section className="pb-16 grid grid-cols-3 gap-3">
           {STATS.map(({ icon: Icon, value, label }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-5 text-center">
@@ -113,7 +125,7 @@ export function PublicLandingPage() {
           ))}
         </section>
 
-        {/* Fonctionnalités */}
+        {/* ── Fonctionnalités ── */}
         <section id="fonctionnalites" className="pb-16 space-y-6">
           <div className="text-center space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">Tout ce dont vous avez besoin</h2>
@@ -132,7 +144,7 @@ export function PublicLandingPage() {
           </div>
         </section>
 
-        {/* Comment ça marche */}
+        {/* ── Comment ça marche ── */}
         <section className="pb-16 space-y-6">
           <div className="text-center space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">Comment ça marche</h2>
@@ -152,7 +164,7 @@ export function PublicLandingPage() {
           </div>
         </section>
 
-        {/* Tarifs */}
+        {/* ── Tarifs ── */}
         <section id="tarifs" className="pb-16 space-y-6">
           <div className="text-center space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">Plans & Tarifs</h2>
@@ -203,7 +215,7 @@ export function PublicLandingPage() {
           </div>
         </section>
 
-        {/* CTA final */}
+        {/* ── CTA final ── */}
         <section className="pb-20">
           <div className="bg-primary/5 border border-primary/15 rounded-2xl p-10 text-center space-y-4">
             <h2 className="text-xl font-bold text-foreground">Prêt à démarrer ?</h2>
@@ -217,13 +229,61 @@ export function PublicLandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
-            <span className="text-xs text-muted-foreground hidden sm:inline">· Gestion de maintenance informatique</span>
+      {/* ── Footer 3 colonnes ── */}
+      <footer className="border-t border-border py-8">
+        <div className="max-w-5xl mx-auto px-4 grid gap-8 md:grid-cols-[1.2fr_1fr_1fr] text-sm">
+
+          {/* Col 1 : marque */}
+          <div className="space-y-3 text-muted-foreground">
+            <Link to="/" className="block">
+              <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
+            </Link>
+            <p>IT-Access centralise le suivi, la maintenance et les preuves d'intervention de vos équipements IT.</p>
+            <p>© {new Date().getFullYear()} IT-Access. Tous droits réservés.</p>
           </div>
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} IT-Access. Tous droits réservés.</p>
+
+          {/* Col 2 : liens utiles */}
+          <div>
+            <h3 className="font-semibold text-foreground mb-3">Liens utiles</h3>
+            <ul className="space-y-2 text-muted-foreground">
+              <li>
+                <a href="#fonctionnalites" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+                  <HelpCircle size={14} />Fonctionnalités
+                </a>
+              </li>
+              <li>
+                <a href="#tarifs" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+                  <FileText size={14} />Tarifs
+                </a>
+              </li>
+              <li>
+                <Link to="/connexion" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+                  <Shield size={14} />Connexion
+                </Link>
+              </li>
+              <li>
+                <Link to="/inscription" className="inline-flex items-center gap-2 hover:text-foreground transition-colors">
+                  <ArrowRight size={14} />Créer un compte
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3 : contact */}
+          <div>
+            <h3 className="font-semibold text-foreground mb-3">Nous contacter</h3>
+            <div className="space-y-2 text-muted-foreground">
+              <a href="mailto:itaccesscontact@gmail.com" className="inline-flex items-center gap-2 font-medium text-primary hover:text-primary/80 transition-colors">
+                <Mail size={14} />Envoyer un message
+              </a>
+              <p className="flex items-center gap-2 text-xs">
+                <Mail size={14} className="flex-shrink-0" />itaccesscontact@gmail.com
+              </p>
+              <p className="flex items-center gap-2 text-xs">
+                <MapPin size={14} className="flex-shrink-0" />Support IT-Access
+              </p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

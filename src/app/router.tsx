@@ -26,6 +26,7 @@ import { SudoDashboardPage } from '../features/dashboard/pages/SudoDashboardPage
 import { SudoUsersPage } from '../features/sudo/pages/SudoUsersPage'
 import { SudoInterventionsPage } from '../features/sudo/pages/SudoInterventionsPage'
 import { SudoEquipmentPage } from '../features/sudo/pages/SudoEquipmentPage'
+import { SudoParametresPage } from '../features/sudo/pages/SudoParametresPage'
 
 // ----- Admin -----
 import { AdminLayout } from '../components/layout/AdminLayout'
@@ -90,6 +91,7 @@ export const router = createBrowserRouter([
       { path: 'historique',    element: <AuditLogsPage /> },
       { path: 'equipements/:id', element: <EquipmentPassportPage /> },
       { path: 'profil',        element: <ProfilePage /> },
+      { path: 'parametres',    element: <SudoParametresPage /> },
     ],
   },
 

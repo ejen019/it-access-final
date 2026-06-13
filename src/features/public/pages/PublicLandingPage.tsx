@@ -64,10 +64,10 @@ export function PublicLandingPage() {
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-20 bg-card/90 backdrop-blur-md border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Left : brand + nav links (desktop) */}
-          <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+        <div className="px-4 sm:px-6 h-14 flex items-center">
+          {/* Left : brand + nav */}
+          <div className="flex items-center gap-5 mr-auto">
+            <Link to="/" className="flex-shrink-0">
               <span className="text-[15px] font-bold text-primary tracking-tight">IT-Access</span>
             </Link>
             <nav className="hidden md:flex items-center gap-5 text-[13px] text-muted-foreground">
@@ -75,12 +75,12 @@ export function PublicLandingPage() {
               <a href="#tarifs" className="hover:text-foreground transition-colors">Tarifs</a>
             </nav>
           </div>
-          {/* Right : auth buttons */}
-          <div className="flex items-center gap-2">
-            <Link to="/connexion" className="px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors">
+          {/* Right : auth */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Link to="/connexion" className="px-4 py-1.5 text-[13px] text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors">
               Connexion
             </Link>
-            <Link to="/inscription" className="px-3 py-1.5 text-[13px] text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors font-medium">
+            <Link to="/inscription" className="px-4 py-1.5 text-[13px] text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors font-medium">
               S'inscrire
             </Link>
           </div>
@@ -99,11 +99,6 @@ export function PublicLandingPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-              <Sparkles size={12} />
-              Plateforme nouvelle génération
-            </div>
-
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight max-w-2xl mx-auto tracking-tight">
               Gérez votre parc IT
               <span className="text-primary block">simplement.</span>
@@ -123,23 +118,6 @@ export function PublicLandingPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">À partir de 50 000 FCFA / an — sans engagement</p>
-
-            {/* Feature stripe */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
-              {[
-                { icon: ScanLine,   label: 'Scan QR < 10s' },
-                { icon: PenLine,    label: 'Signature électronique' },
-                { icon: Smartphone, label: 'PWA hors-ligne' },
-                { icon: Sparkles,   label: 'Import IA du parc' },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="rounded-2xl bg-card border border-border p-4 flex flex-col items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
-                    <Icon size={16} className="text-primary" />
-                  </div>
-                  <p className="text-xs font-medium text-center text-foreground">{label}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 

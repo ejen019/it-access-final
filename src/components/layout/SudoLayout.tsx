@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Monitor, Wrench, LogOut, History, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, Monitor, Wrench, LogOut, History, Menu, X, Settings } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { supabase } from '@/lib/supabase/client'
 import { NotificationBell } from '@/components/shared/NotificationBell'
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/sudo/interventions', icon: Wrench,          label: 'Interventions' },
   { to: '/sudo/equipements',   icon: Monitor,         label: 'Équipements' },
   { to: '/sudo/historique',    icon: History,         label: 'Historique' },
+  { to: '/sudo/parametres',    icon: Settings,        label: 'Paramètres' },
 ]
 
 function Initials({ name }: { name: string }) {

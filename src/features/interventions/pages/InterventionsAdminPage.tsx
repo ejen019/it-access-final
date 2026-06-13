@@ -18,6 +18,7 @@ import type { NiveauUrgence } from '@/types'
 // ----- Helpers visuels -----
 
 const STATUS_LABEL: Record<string, string> = {
+  en_attente: 'En attente',
   planifiee: 'Planifiée',
   en_cours: 'En cours',
   terminee: 'Terminée',
@@ -26,11 +27,19 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_CLASS: Record<string, string> = {
+  en_attente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
   signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   annulee: 'bg-muted text-muted-foreground',
+}
+
+function isEnAttente(i: any) {
+  return i.statut === 'planifiee' && (!i.interventions_techniciens || i.interventions_techniciens.length === 0)
+}
+function displayStatut(i: any): string {
+  return isEnAttente(i) ? 'en_attente' : i.statut
 }
 
 const URGENCY_LABEL: Record<string, string> = {
@@ -391,7 +400,7 @@ export function InterventionsAdminPage() {
     const matchSearch =
       (i.titre ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (i.clients?.nom_entreprise ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchStatus = !filterStatus || i.statut === filterStatus
+    const matchStatus = !filterStatus || displayStatut(i) === filterStatus
     const matchUrgency = !filterUrgency || i.urgence === filterUrgency
     const matchClient = !filterClient || i.client_id === filterClient
     const type = i.type_planification ?? 'reparation'
@@ -401,7 +410,8 @@ export function InterventionsAdminPage() {
 
   const stats = {
     total: interventions.filter((i: any) => i.statut !== 'annulee').length,
-    planifiee: interventions.filter((i: any) => i.statut === 'planifiee').length,
+    en_attente: interventions.filter((i: any) => isEnAttente(i)).length,
+    planifiee: interventions.filter((i: any) => i.statut === 'planifiee' && !isEnAttente(i)).length,
     en_cours: interventions.filter((i: any) => i.statut === 'en_cours').length,
     terminee: interventions.filter((i: any) => i.statut === 'terminee').length,
     signee: interventions.filter((i: any) => i.statut === 'signee').length,
@@ -443,10 +453,10 @@ export function InterventionsAdminPage() {
       {/* Mini stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Planifiées',  value: stats.planifiee, bar: 'bg-blue-500',   textColor: 'text-blue-600 dark:text-blue-400' },
-          { label: 'En cours',    value: stats.en_cours,  bar: 'bg-amber-500',  textColor: 'text-amber-600 dark:text-amber-400' },
-          { label: 'Terminées',   value: stats.terminee,  bar: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400' },
-          { label: 'Critiques',   value: stats.critiques, bar: 'bg-red-500',    textColor: 'text-red-600 dark:text-red-400' },
+          { label: 'En attente', value: stats.en_attente, bar: 'bg-amber-500',  textColor: 'text-amber-600 dark:text-amber-400' },
+          { label: 'En cours',   value: stats.en_cours,   bar: 'bg-orange-500', textColor: 'text-orange-600 dark:text-orange-400' },
+          { label: 'Terminées',  value: stats.terminee,   bar: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400' },
+          { label: 'Critiques',  value: stats.critiques,  bar: 'bg-red-500',    textColor: 'text-red-600 dark:text-red-400' },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <p className={`text-xl font-bold ${s.textColor}`}>{s.value}</p>
@@ -475,49 +485,73 @@ export function InterventionsAdminPage() {
       </div>
 
       {/* Filtres */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="relative sm:col-span-2 lg:col-span-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Titre, entreprise…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-4 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative sm:col-span-2">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Titre, entreprise…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-4 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <select
+            value={filterClient}
+            onChange={(e) => setFilterClient(e.target.value)}
+            className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Toutes les entreprises</option>
+            {(clients as any[]).map((c) => (
+              <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
+            ))}
+          </select>
         </div>
-        <select
-          value={filterClient}
-          onChange={(e) => setFilterClient(e.target.value)}
-          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Toutes les entreprises</option>
-          {(clients as any[]).map((c) => (
-            <option key={c.id} value={c.id}>{c.nom_entreprise}</option>
+
+        {/* Filtres statut (boutons) + urgence */}
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            ['', 'Tous'],
+            ['en_attente', 'En attente'],
+            ['planifiee',  'Planifiées'],
+            ['en_cours',   'En cours'],
+            ['terminee',   'Terminées'],
+            ['signee',     'Signées'],
+            ['annulee',    'Annulées'],
+          ] as [string, string][]).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setFilterStatus(val)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filterStatus === val
+                  ? val === 'en_attente'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {label}
+              {val === 'en_attente' && stats.en_attente > 0 && (
+                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${filterStatus === 'en_attente' ? 'bg-white/20' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                  {stats.en_attente}
+                </span>
+              )}
+            </button>
           ))}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Tous les statuts</option>
-          <option value="planifiee">Planifiée</option>
-          <option value="en_cours">En cours</option>
-          <option value="terminee">Terminée</option>
-          <option value="signee">Signée</option>
-          <option value="annulee">Annulée</option>
-        </select>
-        <select
-          value={filterUrgency}
-          onChange={(e) => setFilterUrgency(e.target.value)}
-          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Toutes urgences</option>
-          <option value="faible">Faible</option>
-          <option value="moyenne">Moyenne</option>
-          <option value="critique">Critique</option>
-        </select>
+          <div className="ml-auto">
+            <select
+              value={filterUrgency}
+              onChange={(e) => setFilterUrgency(e.target.value)}
+              className="px-3 py-1.5 bg-background border border-input rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Toutes urgences</option>
+              <option value="faible">Faible</option>
+              <option value="moyenne">Moyenne</option>
+              <option value="critique">Critique</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Tableau */}
@@ -577,8 +611,8 @@ export function InterventionsAdminPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.statut] ?? ''}`}>
-                        {STATUS_LABEL[i.statut]}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[displayStatut(i)] ?? ''}`}>
+                        {STATUS_LABEL[displayStatut(i)]}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">

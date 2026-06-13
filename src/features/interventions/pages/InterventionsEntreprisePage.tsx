@@ -19,6 +19,7 @@ async function fetchMyClientId(userId: string): Promise<string | null> {
 }
 
 const STATUS_LABEL: Record<string, string> = {
+  en_attente: 'En attente',
   planifiee: 'Planifiée',
   en_cours: 'En cours',
   terminee: 'À signer',
@@ -27,11 +28,19 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_CLASS: Record<string, string> = {
+  en_attente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   planifiee: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   en_cours: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   terminee: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
   signee: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   annulee: 'bg-muted text-muted-foreground',
+}
+
+function isEnAttente(i: any) {
+  return i.statut === 'planifiee' && (!i.interventions_techniciens || i.interventions_techniciens.length === 0)
+}
+function displayStatut(i: any): string {
+  return isEnAttente(i) ? 'en_attente' : i.statut
 }
 
 const URGENCY_BORDER: Record<string, string> = {
@@ -40,7 +49,7 @@ const URGENCY_BORDER: Record<string, string> = {
   critique: 'border-l-red-500',
 }
 
-type StatusFilter = 'all' | 'planifiee' | 'en_cours' | 'terminee' | 'signee'
+type StatusFilter = 'all' | 'en_attente' | 'planifiee' | 'en_cours' | 'terminee' | 'signee'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -62,7 +71,7 @@ export function InterventionsEntreprisePage() {
 
   const filtered = filter === 'all'
     ? interventions
-    : interventions.filter((i: any) => i.statut === filter)
+    : interventions.filter((i: any) => displayStatut(i) === filter)
 
   if (isLoading) {
     return (
@@ -97,18 +106,21 @@ export function InterventionsEntreprisePage() {
       {/* Filtres */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([
-          ['all', 'Toutes'],
-          ['planifiee', 'Planifiées'],
-          ['en_cours', 'En cours'],
-          ['terminee', 'À signer'],
-          ['signee', 'Signées'],
+          ['all',        'Toutes'],
+          ['en_attente', 'En attente'],
+          ['planifiee',  'Planifiées'],
+          ['en_cours',   'En cours'],
+          ['terminee',   'À signer'],
+          ['signee',     'Signées'],
         ] as [StatusFilter, string][]).map(([val, label]) => (
           <button
             key={val}
             onClick={() => setFilter(val)}
             className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === val
-                ? 'bg-primary text-primary-foreground'
+                ? val === 'en_attente'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
@@ -137,8 +149,8 @@ export function InterventionsEntreprisePage() {
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{i.description}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[i.statut] ?? ''}`}>
-                    {STATUS_LABEL[i.statut]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_CLASS[displayStatut(i)] ?? ''}`}>
+                    {STATUS_LABEL[displayStatut(i)]}
                   </span>
                   {i.statut === 'terminee' && (
                     <PenLine size={14} className="text-purple-500" />

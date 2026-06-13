@@ -599,6 +599,10 @@ CREATE POLICY "interv_all" ON interventions FOR ALL USING (
 ) WITH CHECK (
   mon_role() IN ('admin', 'super_admin')
   OR client_id IN (SELECT id FROM clients WHERE utilisateur_id = auth.uid())
+  OR id IN (
+    SELECT intervention_id FROM interventions_techniciens
+      WHERE technicien_id = (SELECT id FROM techniciens WHERE utilisateur_id = auth.uid())
+  )
 );
 
 -- ----- interventions_equipements -----

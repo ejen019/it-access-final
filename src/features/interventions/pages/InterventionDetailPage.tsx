@@ -343,6 +343,7 @@ export function InterventionDetailPage() {
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showValiderModal, setShowValiderModal] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const rapport = (intervention as any)?.rapports_intervention?.[0]
 
@@ -383,7 +384,12 @@ export function InterventionDetailPage() {
   // ----- Actions Technicien -----
 
   async function handleStart() {
-    await updateStatus.mutateAsync({ id: id!, statut: 'en_cours' })
+    setActionError(null)
+    try {
+      await updateStatus.mutateAsync({ id: id!, statut: 'en_cours' })
+    } catch (e: any) {
+      setActionError(e?.message ?? "Erreur lors du démarrage. Réessayez.")
+    }
   }
 
   async function handleSaveReport() {
@@ -568,6 +574,11 @@ export function InterventionDetailPage() {
               <p className="text-sm text-muted-foreground">
                 {"Cliquez sur Démarrer pour indiquer que vous êtes en cours d'intervention."}
               </p>
+              {actionError && (
+                <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                  {actionError}
+                </p>
+              )}
               <button
                 onClick={handleStart}
                 disabled={updateStatus.isPending}

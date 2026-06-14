@@ -18,10 +18,12 @@ import type { Equipement } from '@/types'
 async function fetchEquipementInterventions(equipementId: string) {
   const { data } = await supabase
     .from('interventions_equipements')
-    .select('interventions(id, titre, statut, urgence, cree_le)')
+    .select('interventions(id, titre, statut, urgence, cree_le, urgence)')
     .eq('equipement_id', equipementId)
-    .limit(10)
-  return (data ?? []).map((r: any) => r.interventions).filter(Boolean)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  const list = (data ?? []).map((r: any) => r.interventions).filter(Boolean)
+  return list.sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime())
 }
 
 const URGENCY_COLOR: Record<string, string> = {
@@ -196,7 +198,7 @@ export function EquipmentPassportPage() {
 
   const canEdit = ['admin', 'super_admin', 'client'].includes(profile?.role ?? '')
   const canSignalPanne = profile?.role === 'client' && equipment.etat === 'operationnel'
-  const canRemettreEnService = profile?.role === 'client' && equipment.etat === 'en_panne'
+  const canRemettreEnService = ['client', 'admin', 'super_admin'].includes(profile?.role ?? '') && equipment.etat === 'en_panne'
 
   async function handleRemettreEnService() {
     if (!equipment || !id) return

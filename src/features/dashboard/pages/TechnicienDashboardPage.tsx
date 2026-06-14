@@ -47,11 +47,6 @@ const STATUS_CLASS: Record<string, string> = {
 export function TechnicienDashboardPage() {
   const { profile } = useAuthStore()
   const { data: interventions = [] } = useInterventionsTechnicien(profile?.id)
-  // Entreprises dérivées des missions (plus d'affectation directe entreprise↔technicien)
-  const companiesCount = new Set(
-    interventions.map((i: any) => i.client_id).filter(Boolean)
-  ).size
-
   const active    = interventions.filter((i: any) => i.statut === 'planifiee').length
   const enCours   = interventions.filter((i: any) => i.statut === 'en_cours').length
   const enAttente = interventions.filter((i: any) => i.statut === 'terminee').length
@@ -66,9 +61,6 @@ export function TechnicienDashboardPage() {
       <div>
         <p className="text-xs text-muted-foreground">{getGreeting()}</p>
         <h1 className="text-xl font-bold text-foreground">{profile?.nom}</h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {companiesCount} entreprise{companiesCount > 1 ? 's' : ''} · {interventions.length} mission{interventions.length > 1 ? 's' : ''}
-        </p>
       </div>
 
       {/* Alerte critique */}

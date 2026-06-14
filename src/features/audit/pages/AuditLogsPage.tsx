@@ -178,6 +178,7 @@ export function AuditLogsPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Entité</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Détails</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,6 +210,15 @@ export function AuditLogsPage() {
                           {JSON.stringify(log.details ?? {}, null, 2)}
                         </pre>
                       </details>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => downloadCSV([log])}
+                        title="Télécharger cette entrée"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <Download size={14} />
+                      </button>
                     </td>
                   </tr>
                 ))}

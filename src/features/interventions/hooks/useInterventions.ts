@@ -120,7 +120,8 @@ export function useInterventionsTechnicien(utilisateurId: string | undefined) {
         .select('intervention_id, interventions(*, clients(nom_entreprise))')
         .eq('technicien_id', tech.id)
       if (error) throw error
-      return (data ?? []).map((r: any) => r.interventions).filter(Boolean)
+      const list = (data ?? []).map((r: any) => r.interventions).filter(Boolean)
+      return list.sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime())
     },
     enabled: !!utilisateurId,
   })

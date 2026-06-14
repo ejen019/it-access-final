@@ -54,64 +54,60 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen bg-[hsl(240_21%_5%)] flex">
 
-      {/* ── Panneau gauche ── */}
-      <div className="hidden lg:flex flex-col bg-primary text-primary-foreground relative overflow-hidden">
-        {/* Bruit de fond subtil */}
-        <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-        <div className="absolute top-10 right-10 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+      {/* ── Panneau gauche : branding ── */}
+      <div className="hidden lg:flex flex-col flex-1 justify-between px-16 py-14">
+        <Link to="/" className="text-base font-bold tracking-tight text-white/90">IT-Access</Link>
 
-        {/* Logo fixé en haut */}
-        <div className="relative z-10 px-10 pt-10">
-          <Link to="/" className="text-xl font-bold tracking-tight">IT-Access</Link>
-        </div>
-
-        {/* Contenu centré verticalement — aligné avec le formulaire en face */}
-        <div className="flex-1 flex flex-col justify-center relative z-10 px-10 pb-10">
-          <div className="max-w-xs">
-            <p className="text-[11px] font-semibold tracking-widest uppercase text-primary-foreground/50 mb-4">
-              Gestion de maintenance IT
+        <div className="space-y-8">
+          <div>
+            <p className="text-[10px] font-semibold tracking-[0.22em] uppercase text-white/25 mb-5">
+              Maintenance IT
             </p>
-            <h2 className="text-3xl font-bold leading-snug">
-              La maintenance IT,<br />sans paperasse.
+            <h2 className="text-[2.6rem] font-bold leading-[1.15] text-white/90">
+              La maintenance,<br />sans friction.
             </h2>
-            <p className="mt-4 text-primary-foreground/70 text-sm leading-relaxed">
-              Scannez, documentez, signez. Tout l'historique de vos équipements à portée de QR Code.
+            <p className="mt-5 text-[15px] text-white/35 leading-relaxed max-w-[320px]">
+              Chaque équipement a une histoire. IT-Access la trace — du signalement à la signature.
             </p>
+          </div>
 
-            {/* Séparateur */}
-            <div className="mt-8 w-12 h-0.5 bg-primary-foreground/30 rounded-full" />
-
-            <div className="mt-6 space-y-2">
-              {[
-                'Passeport QR pour chaque équipement',
-                'Interventions signées électroniquement',
-                'Rapports PDF horodatés',
-              ].map((text) => (
-                <div key={text}
-                  className="flex items-center gap-3 bg-white/10 border border-white/15 rounded-lg px-4 py-2.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground/60 flex-shrink-0" />
-                  <span className="text-xs font-medium text-primary-foreground/85">{text}</span>
+          <div className="space-y-3">
+            {[
+              ['QR Code',     'Accès instantané au passeport numérique'],
+              ['Signature',   'Clôture d\'intervention électronique'],
+              ['Historique',  'Traçabilité complète des actions'],
+            ].map(([label, desc]) => (
+              <div key={label} className="flex items-start gap-3.5">
+                <span className="mt-1 w-1 h-1 rounded-full bg-primary/60 flex-shrink-0" />
+                <div>
+                  <span className="text-xs font-semibold text-white/50">{label} — </span>
+                  <span className="text-xs text-white/25">{desc}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
+
+        <p className="text-[11px] text-white/15">© {new Date().getFullYear()} IT-Access</p>
       </div>
 
+      {/* ── Séparateur vertical ── */}
+      <div className="hidden lg:block w-px self-stretch bg-primary/25 my-10" />
+
       {/* ── Formulaire ── */}
-      <div className="flex items-center justify-center p-6 sm:p-10 bg-background">
+      <div className="flex-1 flex items-center justify-center px-6 sm:px-10 lg:px-16 py-14">
         <div className="w-full max-w-sm">
 
-          <div className="lg:hidden mb-8 text-center">
-            <Link to="/" className="text-2xl font-bold text-primary">IT-Access</Link>
-            <p className="mt-1 text-sm text-muted-foreground">Gestion de maintenance informatique</p>
+          <div className="lg:hidden mb-10">
+            <Link to="/" className="text-lg font-bold text-white/90">IT-Access</Link>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bon retour !</h1>
-          <p className="mt-1 text-sm text-muted-foreground mb-8">Connectez-vous à votre espace</p>
+          <div className="mb-9">
+            <h1 className="text-2xl font-semibold tracking-tight text-white/90">Connexion</h1>
+            <p className="mt-1.5 text-[13px] text-white/30">Accédez à votre espace de travail</p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -120,43 +116,50 @@ export function LoginPage() {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-sm font-medium text-foreground">Adresse email</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-[13px] font-medium text-white/50">Adresse email</label>
+              <input
+                id="email" type="email" value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="vous@exemple.com" required autoComplete="email"
-                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                className="w-full px-3.5 py-3 bg-white/5 border border-white/10 rounded-lg text-[13px] text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition"
+              />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-sm font-medium text-foreground">Mot de passe</label>
-                <Link to="/mot-de-passe-oublie" className="text-xs text-primary hover:underline">
-                  Mot de passe oublié ?
+                <label htmlFor="password" className="text-[13px] font-medium text-white/50">Mot de passe</label>
+                <Link to="/mot-de-passe-oublie" className="text-[12px] text-primary/70 hover:text-primary transition">
+                  Oublié ?
                 </Link>
               </div>
               <div className="relative">
-                <input id="password" type={showPassword ? 'text' : 'password'} value={password}
+                <input
+                  id="password" type={showPassword ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                   required autoComplete="current-password"
-                  className="w-full px-3 py-2.5 pr-10 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                  className="w-full px-3.5 py-3 pr-10 bg-white/5 border border-white/10 rounded-lg text-[13px] text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition"
+                />
                 <button type="button" onClick={() => setShow(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition"
                   aria-label={showPassword ? 'Masquer' : 'Afficher'}>
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
             <button type="submit" disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition shadow-sm">
-              {isLoading && <Loader2 size={16} className="animate-spin" />}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-2 bg-primary text-white rounded-lg text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-50 transition">
+              {isLoading && <Loader2 size={15} className="animate-spin" />}
               Se connecter
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-7 text-center text-[13px] text-white/25">
             Pas encore de compte ?{' '}
-            <Link to="/inscription" className="text-primary hover:underline font-medium">S'inscrire</Link>
+            <Link to="/inscription" className="text-primary/70 hover:text-primary transition font-medium">
+              S'inscrire
+            </Link>
           </p>
         </div>
       </div>

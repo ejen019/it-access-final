@@ -92,6 +92,7 @@ export const router = createBrowserRouter([
       { path: 'equipements/:id', element: <EquipmentPassportPage /> },
       { path: 'profil',        element: <ProfilePage /> },
       { path: 'parametres',    element: <SudoParametresPage /> },
+      { path: 'scanner',        element: <ScanPage /> },
     ],
   },
 

@@ -33,7 +33,7 @@ export function SudoEquipmentPage() {
   const [filterClient, setFilterClient] = useState('')
   const [filterEtat, setFilterEtat] = useState('')
 
-  const { data: equipements = [], isLoading, error, refetch } = useQuery({
+  const { data: equipements = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['sudo-equipements'],
     queryFn: fetchAllEquipements,
   })
@@ -70,7 +70,7 @@ export function SudoEquipmentPage() {
         </div>
         <button onClick={() => refetch()}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-sm text-muted-foreground hover:bg-accent transition-colors">
-          <RefreshCw size={14} />
+          <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>

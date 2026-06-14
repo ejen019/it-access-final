@@ -1,26 +1,34 @@
 // =============================================================
-// ScanPage — Scanner QR Code équipement (Technicien)
-// Utilise l'API BarcodeDetector si disponible, sinon guide manuel
+// ScanPage — Scanner QR Code équipement
+// Stratégie : BarcodeDetector si disponible, sinon jsQR sur canvas
+// Fonctionne sur Chrome, Firefox, Safari, Edge, iOS, Android
 // =============================================================
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QrCode, AlertCircle, CheckCircle2, Loader2, Camera } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
+import jsQR from 'jsqr'
 
-// Chemin du passeport équipement selon le rôle connecté
 function passportPath(role: string | undefined, equipmentId: string): string {
-  if (role === 'admin' || role === 'super_admin') return `/admin/equipements/${equipmentId}`
-  if (role === 'client') return `/entreprise/parc/${equipmentId}`
+  if (role === 'super_admin') return `/sudo/equipements/${equipmentId}`
+  if (role === 'admin')       return `/admin/equipements/${equipmentId}`
+  if (role === 'client')      return `/entreprise/parc/${equipmentId}`
   return `/technicien/equipement/${equipmentId}`
 }
 
-// URL du passeport : ${origin}/equipement/:id
 function extractEquipmentId(url: string): string | null {
   try {
     const parsed = new URL(url)
     const match = parsed.pathname.match(/\/equipement\/([^/]+)/)
-    return match ? match[1] : null
+    if (match) return match[1]
+    // fallback: last path segment if looks like a UUID
+    const parts = parsed.pathname.split('/').filter(Boolean)
+    const last = parts[parts.length - 1]
+    if (last && /^[0-9a-f-]{36}$/i.test(last)) return last
+    return null
   } catch {
+    // plain UUID passed directly
+    if (/^[0-9a-f-]{36}$/i.test(url)) return url
     return null
   }
 }
@@ -28,90 +36,104 @@ function extractEquipmentId(url: string): string | null {
 export function ScanPage() {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [status, setStatus] = useState<'idle' | 'requesting' | 'scanning' | 'success' | 'error' | 'unsupported'>('idle')
-  const [errorMsg, setErrorMsg] = useState('')
-  const [manualId, setManualId] = useState('')
-  const streamRef = useRef<MediaStream | null>(null)
+  const videoRef  = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef    = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number | null>(null)
 
-  const isSupported = typeof (window as any).BarcodeDetector !== 'undefined'
+  const [status, setStatus] = useState<'idle' | 'requesting' | 'scanning' | 'success' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [manualId, setManualId] = useState('')
 
   useEffect(() => {
     return () => {
-      // Nettoyer le stream caméra à l'unmount
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop())
-      }
+      streamRef.current?.getTracks().forEach((t) => t.stop())
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     }
   }, [])
 
   async function startScanning() {
-    if (!isSupported) {
-      setStatus('unsupported')
-      return
-    }
-
     setStatus('requesting')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       })
       streamRef.current = stream
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.play()
+        await videoRef.current.play()
       }
-
       setStatus('scanning')
 
-      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
+      const hasBarcodeDetector = typeof (window as any).BarcodeDetector !== 'undefined'
 
-      function scan() {
-        if (!videoRef.current || videoRef.current.readyState < 2) {
-          animFrameRef.current = requestAnimationFrame(scan)
-          return
-        }
-
-        detector.detect(videoRef.current).then((codes: any[]) => {
-          if (codes.length > 0) {
-            const rawValue: string = codes[0].rawValue
-            const equipmentId = extractEquipmentId(rawValue)
-
-            if (equipmentId) {
-              setStatus('success')
-              stream.getTracks().forEach((t) => t.stop())
-              if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-              setTimeout(() => navigate(passportPath(profile?.role, equipmentId)), 600)
-            } else {
-              animFrameRef.current = requestAnimationFrame(scan)
-            }
-          } else {
-            animFrameRef.current = requestAnimationFrame(scan)
+      if (hasBarcodeDetector) {
+        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
+        function scanNative() {
+          if (!videoRef.current || videoRef.current.readyState < 2) {
+            animFrameRef.current = requestAnimationFrame(scanNative)
+            return
           }
-        }).catch(() => {
-          animFrameRef.current = requestAnimationFrame(scan)
-        })
+          detector.detect(videoRef.current).then((codes: any[]) => {
+            if (codes.length > 0) {
+              handleDetected(codes[0].rawValue, stream)
+            } else {
+              animFrameRef.current = requestAnimationFrame(scanNative)
+            }
+          }).catch(() => {
+            animFrameRef.current = requestAnimationFrame(scanNative)
+          })
+        }
+        scanNative()
+      } else {
+        // jsQR fallback: capture frames via canvas
+        function scanJsQR() {
+          const video = videoRef.current
+          const canvas = canvasRef.current
+          if (!video || !canvas || video.readyState < 2) {
+            animFrameRef.current = requestAnimationFrame(scanJsQR)
+            return
+          }
+          canvas.width  = video.videoWidth
+          canvas.height = video.videoHeight
+          const ctx = canvas.getContext('2d')
+          if (!ctx) { animFrameRef.current = requestAnimationFrame(scanJsQR); return }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+          const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' })
+          if (code?.data) {
+            handleDetected(code.data, stream)
+          } else {
+            animFrameRef.current = requestAnimationFrame(scanJsQR)
+          }
+        }
+        scanJsQR()
       }
-
-      scan()
     } catch (err: any) {
       setErrorMsg(
         err?.name === 'NotAllowedError'
-          ? "Accès à la caméra refusé. Autorisez la caméra dans les paramètres du navigateur."
+          ? "Accès à la caméra refusé. Autorisez-la dans les paramètres du navigateur."
           : "Impossible d'accéder à la caméra."
       )
       setStatus('error')
     }
   }
 
-  function stopScanning() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
+  function handleDetected(rawValue: string, stream: MediaStream) {
+    const equipmentId = extractEquipmentId(rawValue)
+    if (equipmentId) {
+      setStatus('success')
+      stream.getTracks().forEach((t) => t.stop())
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      setTimeout(() => navigate(passportPath(profile?.role, equipmentId)), 600)
+    } else {
+      if (animFrameRef.current) animFrameRef.current = requestAnimationFrame(() => {})
     }
+  }
+
+  function stopScanning() {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     setStatus('idle')
   }
@@ -134,15 +156,11 @@ export function ScanPage() {
 
       {/* Zone caméra */}
       <div className="relative w-full aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden bg-muted border border-border">
+        <canvas ref={canvasRef} className="hidden" />
+
         {(status === 'scanning' || status === 'success') ? (
           <>
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              playsInline
-              muted
-            />
-            {/* Overlay guidage */}
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
             {status === 'scanning' && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-48 h-48 relative">
@@ -169,23 +187,13 @@ export function ScanPage() {
             {status === 'idle' && (
               <>
                 <QrCode size={48} className="text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground text-center">
-                  {isSupported ? 'Prêt à scanner' : 'Scanner non disponible sur ce navigateur'}
-                </p>
+                <p className="text-sm text-muted-foreground text-center">Prêt à scanner</p>
               </>
             )}
             {status === 'error' && (
               <>
                 <AlertCircle size={32} className="text-destructive" />
                 <p className="text-sm text-destructive text-center">{errorMsg}</p>
-              </>
-            )}
-            {status === 'unsupported' && (
-              <>
-                <Camera size={32} className="text-muted-foreground" />
-                <p className="text-sm text-muted-foreground text-center">
-                  BarcodeDetector non disponible. Utilisez Chrome 83+ ou Android.
-                </p>
               </>
             )}
           </div>
@@ -195,24 +203,20 @@ export function ScanPage() {
       {/* Boutons caméra */}
       <div className="flex gap-3 max-w-sm mx-auto">
         {status === 'scanning' ? (
-          <button
-            onClick={stopScanning}
-            className="flex-1 px-4 py-3 border border-border rounded-xl text-sm font-medium text-foreground hover:bg-accent transition-colors"
-          >
+          <button onClick={stopScanning}
+            className="flex-1 px-4 py-3 border border-border rounded-xl text-sm font-medium text-foreground hover:bg-accent transition-colors">
             Arrêter
           </button>
         ) : status !== 'requesting' && status !== 'success' ? (
-          <button
-            onClick={startScanning}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium"
-          >
+          <button onClick={startScanning}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium">
             <Camera size={18} />
-            {isSupported ? 'Démarrer le scanner' : 'Tester quand même'}
+            Démarrer le scanner
           </button>
         ) : null}
       </div>
 
-      {/* Saisie manuelle de l'ID */}
+      {/* Saisie manuelle */}
       <div className="max-w-sm mx-auto space-y-2">
         <p className="text-xs text-muted-foreground text-center">— ou saisir l'ID manuellement —</p>
         <form onSubmit={handleManualSubmit} className="flex gap-2">
@@ -223,21 +227,15 @@ export function ScanPage() {
             placeholder="ID de l'équipement…"
             className="flex-1 px-3 py-2.5 bg-background border border-input rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <button
-            type="submit"
-            disabled={!manualId.trim()}
-            className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60"
-          >
+          <button type="submit" disabled={!manualId.trim()}
+            className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60">
             Aller
           </button>
         </form>
       </div>
 
-      {/* Identification équipement — note technique */}
       <div className="max-w-sm mx-auto rounded-xl border border-border bg-card p-4 space-y-3">
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Identification des équipements</p>
-
-        {/* QR Code — méthode principale */}
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
             <QrCode size={16} className="text-primary" />
@@ -248,30 +246,7 @@ export function ScanPage() {
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Principal</span>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Identifiant universel, imprimable et sans matériel spécifique. Chaque équipement génère son QR unique depuis son passeport.
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t border-border" />
-
-        {/* NFC — option non disponible */}
-        <div className="flex items-start gap-3 opacity-60">
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-muted-foreground">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.3"/>
-              <path d="M8.5 8.5C9.5 7.5 10.7 7 12 7s2.5.5 3.5 1.5"/>
-              <path d="M6 6C7.7 4.3 9.7 3.5 12 3.5s4.3.8 6 2.5"/>
-              <circle cx="12" cy="15" r="1.5"/>
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-[13px] font-medium text-foreground">Tag NFC</p>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Non disponible</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Nécessite des tags NFC physiques programmés + Chrome Android 89+. Non déployé dans ce prototype faute de matériel.
+              Compatible tous navigateurs. Chaque équipement génère son QR unique depuis son passeport.
             </p>
           </div>
         </div>

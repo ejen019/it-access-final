@@ -125,7 +125,7 @@ export function SudoUsersPage() {
   const [search, setSearch] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const { data: users = [], isLoading, error, refetch } = useQuery({
+  const { data: users = [], isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['sudo-users', tab],
     queryFn: () => fetchUsers(tab),
   })
@@ -168,7 +168,7 @@ export function SudoUsersPage() {
         </div>
         <button onClick={() => refetch()}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-sm text-muted-foreground hover:bg-accent transition-colors">
-          <RefreshCw size={14} />
+          <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>

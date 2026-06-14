@@ -129,7 +129,7 @@ export function SudoDashboardPage() {
   const [creating, setCreating] = useState(false)
   const [companySearch, setCompanySearch] = useState('')
 
-  const { data: stats, isLoading, error } = useQuery({
+  const { data: stats, isLoading, isFetching, error, refetch: refetchStats } = useQuery({
     queryKey: ['sudo-stats'],
     queryFn: fetchSudoStats,
     refetchInterval: 30_000,
@@ -240,10 +240,10 @@ export function SudoDashboardPage() {
           </div>
         </div>
         <button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['sudo-stats'] })}
+          onClick={() => refetchStats()}
           className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
-          <RefreshCw size={13} />
+          <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>

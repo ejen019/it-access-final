@@ -2,8 +2,9 @@
 // EquipmentForm — Formulaire de création / édition d'un équipement
 // =============================================================
 import { useState } from 'react'
-import { Loader2, Upload, X } from 'lucide-react'
+import { Loader2, Upload, X, FileText } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
+import { supabase } from '@/lib/supabase/client'
 import {
   useCreerEquipement,
   useModifierEquipement,
@@ -11,6 +12,28 @@ import {
   type EquipementInput,
 } from '../hooks/useEquipment'
 import type { Equipement } from '@/types'
+
+const DOC_ACCEPT = '.csv,.pdf,.doc,.docx,.txt,application/pdf,text/plain,text/csv'
+const DOC_MAX_MB = 4
+
+async function uploadDocumentEquipement(file: File, equipementId: string, uploadedPar: string): Promise<void> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+  const path = `documents/${equipementId}/${Date.now()}_${file.name}`
+  const { error: upErr } = await supabase.storage
+    .from('it-access-fichiers')
+    .upload(path, file, { upsert: false })
+  if (upErr) throw upErr
+  const { data: urlData } = supabase.storage.from('it-access-fichiers').getPublicUrl(path)
+  const typeMap: Record<string, string> = { pdf: 'pdf', docx: 'docx', doc: 'docx', txt: 'txt', csv: 'csv' }
+  await supabase.from('documents_equipement').insert({
+    equipement_id: equipementId,
+    nom: file.name,
+    url_fichier: urlData.publicUrl,
+    type_fichier: typeMap[ext] ?? 'txt',
+    taille_fichier: file.size,
+    uploade_par: uploadedPar,
+  })
+}
 
 const CATEGORIES = ['PC / Laptop', 'Imprimante', 'Serveur', 'Réseau / Switch', 'Écran', 'Scanner', 'Autre']
 
@@ -39,6 +62,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
   })
 
   const [photos, setPhotos] = useState<string[]>((equipment as any)?.photos ?? [])
+  const [pendingDocs, setPendingDocs] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +74,18 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  function handleDocSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    const invalid = files.filter((f) => f.size > DOC_MAX_MB * 1024 * 1024)
+    if (invalid.length > 0) {
+      setError(`Certains fichiers dépassent ${DOC_MAX_MB} Mo.`)
+      e.target.value = ''
+      return
+    }
+    setPendingDocs((prev) => [...prev, ...files])
+    e.target.value = ''
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,10 +138,16 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
     }
 
     try {
+      let equipementId: string
       if (isEdit) {
         await updateMutation.mutateAsync({ id: equipment.id, updates: { ...input, photos } })
+        equipementId = equipment.id
       } else {
-        await createMutation.mutateAsync(input)
+        const created = await createMutation.mutateAsync(input)
+        equipementId = (created as any).id
+      }
+      if (pendingDocs.length > 0) {
+        await Promise.all(pendingDocs.map((f) => uploadDocumentEquipement(f, equipementId, profile!.id)))
       }
       onSuccess()
     } catch {
@@ -252,6 +294,34 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
             </label>
           )}
         </div>
+      </div>
+
+      {/* Documents */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">
+          Documents ({pendingDocs.length} en attente)
+        </label>
+        <p className="text-xs text-muted-foreground">CSV, PDF, Docx, TXT — max {DOC_MAX_MB} Mo par fichier</p>
+        {pendingDocs.length > 0 && (
+          <div className="space-y-1.5">
+            {pendingDocs.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg">
+                <FileText size={14} className="text-primary flex-shrink-0" />
+                <span className="text-xs text-foreground flex-1 truncate">{f.name}</span>
+                <span className="text-xs text-muted-foreground flex-shrink-0">{(f.size / 1024).toFixed(0)} Ko</span>
+                <button type="button" onClick={() => setPendingDocs((p) => p.filter((_, j) => j !== i))}
+                  className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors">
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <label className="flex items-center gap-2 px-3 py-2.5 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors w-fit">
+          <Upload size={14} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Ajouter un document</span>
+          <input type="file" accept={DOC_ACCEPT} multiple className="hidden" onChange={handleDocSelect} />
+        </label>
       </div>
 
       <div className="flex gap-3 pt-2">

@@ -626,8 +626,21 @@ export function InterventionDetailPage() {
             </div>
           )}
 
-          {/* Signature */}
-          {rapport?.url_signature && (
+          {/* Signature — affichage selon le rôle */}
+          {rapport?.url_signature && role === 'client' && (
+            <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Votre signature</p>
+              <img
+                src={rapport.url_signature}
+                alt="Signature client"
+                className="max-h-28 border border-border rounded-xl bg-white p-2 shadow-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Signature électronique apposée le {formatDate((intervention as any).signee_le ?? rapport.date_fin)}
+              </p>
+            </div>
+          )}
+          {rapport?.url_signature && role !== 'client' && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signature client</p>
               <img src={rapport.url_signature} alt="Signature" className="h-16 border border-border rounded-lg bg-white p-1" />

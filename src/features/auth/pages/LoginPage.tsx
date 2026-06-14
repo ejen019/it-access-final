@@ -97,17 +97,16 @@ export function LoginPage() {
       <div className="hidden lg:block w-px self-stretch bg-primary/25 my-10" />
 
       {/* ── Formulaire ── */}
-      <div className="flex-1 flex items-center justify-center px-6 sm:px-10 lg:px-16 py-14">
+      <div className="flex-1 flex items-center justify-center px-6 sm:p-10 lg:px-16 py-14">
         <div className="w-full max-w-sm">
 
-          <div className="lg:hidden mb-10">
-            <Link to="/" className="text-lg font-bold text-white/90">IT-Access</Link>
+          <div className="lg:hidden mb-8 text-center">
+            <Link to="/" className="text-2xl font-bold text-white/90">IT-Access</Link>
+            <p className="mt-1 text-sm text-white/30">Gestion de maintenance informatique</p>
           </div>
 
-          <div className="mb-9">
-            <h1 className="text-2xl font-semibold tracking-tight text-white/90">Connexion</h1>
-            <p className="mt-1.5 text-[13px] text-white/30">Accédez à votre espace de travail</p>
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white/90">Bon retour !</h1>
+          <p className="mt-1 text-sm text-white/35 mb-8">Connectez-vous à votre espace</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -117,20 +116,20 @@ export function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-[13px] font-medium text-white/50">Adresse email</label>
+              <label htmlFor="email" className="text-sm font-medium text-white/70">Adresse email</label>
               <input
                 id="email" type="email" value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="vous@exemple.com" required autoComplete="email"
-                className="w-full px-3.5 py-3 bg-white/5 border border-white/10 rounded-lg text-[13px] text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition"
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/40 transition"
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-[13px] font-medium text-white/50">Mot de passe</label>
-                <Link to="/mot-de-passe-oublie" className="text-[12px] text-primary/70 hover:text-primary transition">
-                  Oublié ?
+                <label htmlFor="password" className="text-sm font-medium text-white/70">Mot de passe</label>
+                <Link to="/mot-de-passe-oublie" className="text-xs text-primary/70 hover:text-primary transition">
+                  Mot de passe oublié ?
                 </Link>
               </div>
               <div className="relative">
@@ -138,28 +137,26 @@ export function LoginPage() {
                   id="password" type={showPassword ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                   required autoComplete="current-password"
-                  className="w-full px-3.5 py-3 pr-10 bg-white/5 border border-white/10 rounded-lg text-[13px] text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/50 transition"
+                  className="w-full px-3 py-2.5 pr-10 bg-white/5 border border-white/10 rounded-lg text-sm text-white/85 placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/40 transition"
                 />
                 <button type="button" onClick={() => setShow(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition"
                   aria-label={showPassword ? 'Masquer' : 'Afficher'}>
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
             <button type="submit" disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-2 bg-primary text-white rounded-lg text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-50 transition">
-              {isLoading && <Loader2 size={15} className="animate-spin" />}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 transition shadow-sm">
+              {isLoading && <Loader2 size={16} className="animate-spin" />}
               Se connecter
             </button>
           </form>
 
-          <p className="mt-7 text-center text-[13px] text-white/25">
+          <p className="mt-6 text-center text-sm text-white/30">
             Pas encore de compte ?{' '}
-            <Link to="/inscription" className="text-primary/70 hover:text-primary transition font-medium">
-              S'inscrire
-            </Link>
+            <Link to="/inscription" className="text-primary/70 hover:text-primary transition font-medium">S'inscrire</Link>
           </p>
         </div>
       </div>

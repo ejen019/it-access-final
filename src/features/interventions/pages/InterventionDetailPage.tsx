@@ -333,6 +333,8 @@ export function InterventionDetailPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [notesComplementaires, setNotesComplementaires] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   const [validationCode, setValidationCode] = useState('')
   const [codeError, setCodeError] = useState(false)
@@ -353,6 +355,7 @@ export function InterventionDetailPage() {
       setWorkReport(rapport?.compte_rendu ?? '')
       setPartsReplaced(rapport?.pieces_remplacees ?? '')
       setTechPhotos((intervention as any).photos ?? [])
+      setNotesComplementaires((rapport as any)?.notes_complementaires ?? '')
     }
   }, [(intervention as any)?.id])
 
@@ -504,6 +507,17 @@ export function InterventionDetailPage() {
     link.click()
   }
 
+  // ----- Notes complémentaires (technicien, après signature) -----
+  async function handleSaveNotes() {
+    setSavingNotes(true)
+    try {
+      await supabase.from('rapports_intervention')
+        .upsert({ intervention_id: id!, notes_complementaires: notesComplementaires }, { onConflict: 'intervention_id' })
+    } finally {
+      setSavingNotes(false)
+    }
+  }
+
   // ----- Back URL selon rôle -----
   const backUrl =
     role === 'admin' ? '/admin/interventions' :
@@ -572,8 +586,104 @@ export function InterventionDetailPage() {
         </section>
       )}
 
+      {/* ═══ VUE UNIFIÉE — INTERVENTION CLÔTURÉE (signee) ═══ */}
+      {statut === 'signee' && (
+        <section className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" />
+            <h2 className="text-sm font-semibold text-green-700 dark:text-green-400">Intervention clôturée</h2>
+          </div>
+
+          {/* Rapport du technicien */}
+          {rapport?.compte_rendu && (
+            <div className="bg-card border border-border rounded-lg p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Travaux effectués</p>
+              <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
+              {rapport.pieces_remplacees && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pièces remplacées</p>
+                  <p className="text-sm text-foreground">{rapport.pieces_remplacees}</p>
+                </div>
+              )}
+              {(rapport as any).notes_complementaires && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notes complémentaires</p>
+                  <p className="text-sm text-foreground">{(rapport as any).notes_complementaires}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Photos d'intervention */}
+          {((intervention as any).photos ?? []).length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Photos</p>
+              <div className="flex gap-2 flex-wrap">
+                {((intervention as any).photos as string[]).map((url, i) => (
+                  <img key={i} src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-border" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Signature */}
+          {rapport?.url_signature && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signature client</p>
+              <img src={rapport.url_signature} alt="Signature" className="h-16 border border-border rounded-lg bg-white p-1" />
+            </div>
+          )}
+
+          {/* Télécharger PDF */}
+          {rapport?.url_pdf && (
+            <button onClick={handleDownloadPdf}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors">
+              <Download size={15} />
+              Télécharger le compte rendu PDF
+            </button>
+          )}
+
+          {/* Notes complémentaires — technicien uniquement */}
+          {(role === 'technicien' || role === 'admin' || role === 'super_admin') && (
+            <div className="border-t border-green-200 dark:border-green-800 pt-4 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {role === 'technicien' ? 'Ajouter des informations complémentaires' : 'Notes complémentaires (technicien)'}
+              </p>
+              <textarea
+                value={notesComplementaires}
+                onChange={(e) => setNotesComplementaires(e.target.value)}
+                rows={3}
+                readOnly={role !== 'technicien'}
+                placeholder={role === 'technicien' ? 'Observations post-intervention, recommandations…' : '—'}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none disabled:opacity-60 read-only:cursor-default"
+              />
+              {role === 'technicien' && (
+                <button onClick={handleSaveNotes} disabled={savingNotes}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+                  {savingNotes ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  Enregistrer
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Signaler une nouvelle panne — client uniquement */}
+          {role === 'client' && (() => {
+            const equipId = ((intervention as any).interventions_equipements ?? [])[0]?.equipement_id
+            return equipId ? (
+              <div className="border-t border-green-200 dark:border-green-800 pt-4">
+                <button onClick={() => navigate(`/entreprise/parc/${equipId}`)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors">
+                  Signaler une nouvelle panne sur cet équipement
+                </button>
+              </div>
+            ) : null
+          })()}
+        </section>
+      )}
+
       {/* ——— Section Technicien (aussi accessible à l'admin) ——— */}
-      {canIntervene && (
+      {canIntervene && statut !== 'signee' && (
         <>
           {/* Démarrer — masqué pour admin si aucun technicien assigné (en attente de validation) */}
           {statut === 'planifiee' && !(enAttente && (role === 'admin' || role === 'super_admin')) && (
@@ -599,7 +709,7 @@ export function InterventionDetailPage() {
           )}
 
           {/* Rapport de travail */}
-          {(statut === 'en_cours' || statut === 'terminee' || statut === 'signee') && (
+          {(statut === 'en_cours' || statut === 'terminee') && (
             <section className="bg-card border border-border rounded-xl p-4 space-y-4">
               <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Wrench size={15} />
@@ -703,6 +813,20 @@ export function InterventionDetailPage() {
             Votre code de validation se trouve dans votre espace Profil. Saisissez-le et apposez votre signature pour clôturer.
           </div>
 
+          {/* Rapport du technicien en lecture seule avant signature */}
+          {rapport?.compte_rendu && (
+            <div className="bg-muted/40 border border-border rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rapport du technicien</p>
+              <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
+              {rapport.pieces_remplacees && (
+                <div>
+                  <p className="text-xs text-muted-foreground mt-1">Pièces remplacées :</p>
+                  <p className="text-sm text-foreground">{rapport.pieces_remplacees}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Code de validation */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Code de validation</label>
@@ -756,49 +880,6 @@ export function InterventionDetailPage() {
               ? <><Loader2 size={16} className="animate-spin" /> {pdfGenerating ? 'Génération PDF…' : 'Signature en cours…'}</>
               : <><CheckCircle2 size={16} /> {"Signer et clôturer l'intervention"}</>}
           </button>
-        </section>
-      )}
-
-      {/* Rapport en lecture seule (pour entreprise) */}
-      {role === 'client' && (statut === 'signee' || statut === 'terminee') && rapport?.compte_rendu && (
-        <section className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Rapport du technicien</h2>
-          <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
-          {rapport.pieces_remplacees && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Pièces remplacées</p>
-              <p className="text-sm text-foreground">{rapport.pieces_remplacees}</p>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* PDF disponible après clôture */}
-      {statut === 'signee' && (
-        <section className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-green-700 dark:text-green-400">Intervention clôturée</h2>
-          </div>
-          {rapport?.url_signature && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Signature client</p>
-              <img
-                src={rapport.url_signature}
-                alt="Signature"
-                className="h-16 border border-border rounded-lg bg-white p-1"
-              />
-            </div>
-          )}
-          {rapport?.url_pdf && (
-            <button
-              onClick={handleDownloadPdf}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/20 transition-colors"
-            >
-              <Download size={15} />
-              Télécharger le compte rendu PDF
-            </button>
-          )}
         </section>
       )}
 

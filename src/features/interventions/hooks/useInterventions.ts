@@ -356,10 +356,9 @@ export function useSignerIntervention() {
         .single()
       if (error) throw error
 
-      // 3. Créer le rapport si pas existant
+      // 3. Enregistrer la signature sur le rapport existant
       await supabase.from('rapports_intervention').upsert({
         intervention_id: id,
-        description: 'Intervention clôturée et signée par le client.',
         url_signature: sigUrlData.publicUrl,
         date_fin: now,
       }, { onConflict: 'intervention_id' })

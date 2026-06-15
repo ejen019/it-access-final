@@ -26,3 +26,9 @@ dist-ssr
 # Supabase CLI temp
 supabase/.temp
 /.claude/
+
+# Documentation interne / tests (non versionnés sur develop)
+/docs/
+/DOCUMENTATION.md
+/PLAN_DE_TEST.md
+/CLAUDE_TRAVAIL.md

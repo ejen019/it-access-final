@@ -6,7 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, QrCode, Printer, FileText, AlertTriangle,
-  Calendar, MapPin, Tag, Edit2, Wrench, Download,
+  Calendar, MapPin, Tag, Edit2, Wrench, Download, ChevronRight,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -18,9 +18,8 @@ import type { Equipement } from '@/types'
 async function fetchEquipementInterventions(equipementId: string) {
   const { data } = await supabase
     .from('interventions_equipements')
-    .select('interventions(id, titre, statut, urgence, cree_le, urgence)')
+    .select('interventions(id, titre, statut, urgence, cree_le)')
     .eq('equipement_id', equipementId)
-    .order('created_at', { ascending: false })
     .limit(20)
   const list = (data ?? []).map((r: any) => r.interventions).filter(Boolean)
   return list.sort((a: any, b: any) => new Date(b.cree_le).getTime() - new Date(a.cree_le).getTime())
@@ -174,6 +173,13 @@ export function EquipmentPassportPage() {
     admin: '/admin/equipements',
     technicien: '/technicien/dashboard',
     client: '/entreprise/parc',
+  }[profile?.role ?? 'admin']
+
+  const interventionBase = {
+    super_admin: '/sudo/interventions',
+    admin: '/admin/interventions',
+    technicien: '/technicien/interventions',
+    client: '/entreprise/interventions',
   }[profile?.role ?? 'admin']
 
   if (isLoading) {
@@ -374,18 +380,23 @@ export function EquipmentPassportPage() {
           ) : (
             <div className="space-y-2">
               {(interventions as any[]).map((inv) => (
-                <div key={inv.id} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
+                <button
+                  key={inv.id}
+                  onClick={() => navigate(`${interventionBase}/${inv.id}`)}
+                  className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-lg text-left hover:bg-accent/50 hover:border-primary/40 transition-colors"
+                >
                   <Wrench size={16} className="text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{inv.titre}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(inv.cree_le).toLocaleDateString('fr-FR')}
+                      {new Date(inv.cree_le).toLocaleDateString('fr-FR')} · {STATUS_LABEL[inv.statut] ?? inv.statut}
                     </p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${URGENCY_COLOR[inv.urgence] ?? ''}`}>
                     {inv.urgence}
                   </span>
-                </div>
+                  <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
+                </button>
               ))}
             </div>
           )}

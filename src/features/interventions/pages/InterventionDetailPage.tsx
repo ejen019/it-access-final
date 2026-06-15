@@ -260,7 +260,7 @@ function generateInterventionPdf(
   y += descLines.length * 5 + 3
 
   // Rapport
-  if (rapport?.compte_rendu) {
+  if (rapport?.rapport_travaux) {
     doc.line(M, y, 190, y)
     y += 7
     doc.setFontSize(11)
@@ -269,7 +269,7 @@ function generateInterventionPdf(
     y += 6
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    const reportLines = doc.splitTextToSize(rapport.compte_rendu, 165)
+    const reportLines = doc.splitTextToSize(rapport.rapport_travaux, 165)
     doc.text(reportLines, M, y)
     y += reportLines.length * 5 + 3
   }
@@ -352,7 +352,7 @@ export function InterventionDetailPage() {
   // Pré-remplir le rapport
   useEffect(() => {
     if (intervention) {
-      setWorkReport(rapport?.compte_rendu ?? '')
+      setWorkReport(rapport?.rapport_travaux ?? '')
       setPartsReplaced(rapport?.pieces_remplacees ?? '')
       setTechPhotos((intervention as any).photos ?? [])
       setNotesComplementaires((rapport as any)?.notes_complementaires ?? '')
@@ -399,7 +399,7 @@ export function InterventionDetailPage() {
     setSaving(true)
     await supabase
       .from('rapports_intervention')
-      .upsert({ intervention_id: id!, compte_rendu: workReport, pieces_remplacees: partsReplaced },
+      .upsert({ intervention_id: id!, rapport_travaux: workReport, pieces_remplacees: partsReplaced },
         { onConflict: 'intervention_id' })
     await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
     setSaving(false)
@@ -410,7 +410,7 @@ export function InterventionDetailPage() {
     setClosing(true)
     try {
       await supabase.from('rapports_intervention').upsert(
-        { intervention_id: id!, compte_rendu: workReport, pieces_remplacees: partsReplaced, date_fin: new Date().toISOString() },
+        { intervention_id: id!, rapport_travaux: workReport, pieces_remplacees: partsReplaced, date_fin: new Date().toISOString() },
         { onConflict: 'intervention_id' }
       )
       await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
@@ -595,10 +595,10 @@ export function InterventionDetailPage() {
           </div>
 
           {/* Rapport du technicien */}
-          {rapport?.compte_rendu && (
+          {rapport?.rapport_travaux && (
             <div className="bg-card border border-border rounded-lg p-3 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Travaux effectués</p>
-              <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
+              <p className="text-sm text-foreground leading-relaxed">{rapport.rapport_travaux}</p>
               {rapport.pieces_remplacees && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Pièces remplacées</p>
@@ -640,7 +640,7 @@ export function InterventionDetailPage() {
               </p>
             </div>
           )}
-          {rapport?.url_signature && role !== 'client' && (
+          {rapport?.url_signature && (role === 'admin' || role === 'super_admin') && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signature client</p>
               <img src={rapport.url_signature} alt="Signature" className="h-16 border border-border rounded-lg bg-white p-1" />
@@ -827,10 +827,10 @@ export function InterventionDetailPage() {
           </div>
 
           {/* Rapport du technicien en lecture seule avant signature */}
-          {rapport?.compte_rendu && (
+          {rapport?.rapport_travaux && (
             <div className="bg-muted/40 border border-border rounded-lg p-3 space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rapport du technicien</p>
-              <p className="text-sm text-foreground leading-relaxed">{rapport.compte_rendu}</p>
+              <p className="text-sm text-foreground leading-relaxed">{rapport.rapport_travaux}</p>
               {rapport.pieces_remplacees && (
                 <div>
                   <p className="text-xs text-muted-foreground mt-1">Pièces remplacées :</p>

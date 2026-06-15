@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -14,6 +14,8 @@ const ROLE_HOME: Record<string, string> = {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const nextPath = (location.state as { next?: string } | null)?.next
   const { setProfile } = useAuthStore()
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
@@ -50,7 +52,7 @@ export function LoginPage() {
       setIsLoading(false); return
     }
     setProfile(profile as UserProfile)
-    navigate(ROLE_HOME[profile.role] ?? '/connexion', { replace: true })
+    navigate(nextPath ?? ROLE_HOME[profile.role] ?? '/connexion', { replace: true })
   }
 
   return (

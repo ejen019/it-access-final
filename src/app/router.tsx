@@ -56,6 +56,7 @@ import { InterventionsEntreprisePage } from '../features/interventions/pages/Int
 import { ProfilePage } from '../features/users/pages/ProfilePage'
 import { NotFoundPage } from '../components/shared/NotFoundPage'
 import { RootRedirect } from '../components/shared/RootRedirect'
+import { EquipmentRedirect } from '../components/shared/EquipmentRedirect'
 import { PublicLandingPage } from '../features/public/pages/PublicLandingPage'
 import { RouteError } from '../components/shared/RouteError'
 
@@ -69,6 +70,9 @@ export const router = createBrowserRouter([
   { path: '/inscription', element: <RegisterPage />, errorElement: <RouteError /> },
   { path: '/mot-de-passe-oublie', element: <ForgotPasswordPage />, errorElement: <RouteError /> },
   { path: '/reinitialiser-mot-de-passe', element: <ResetPasswordPage />, errorElement: <RouteError /> },
+
+  // Point d'entrée des QR Codes équipement (redirige selon le rôle)
+  { path: '/equipement/:id', element: <EquipmentRedirect />, errorElement: <RouteError /> },
 
   // Login secret Sudo
   { path: '/sudo', element: <SudoLoginPage /> },

@@ -158,29 +158,36 @@ export function ScanPage() {
       <div className="relative w-full aspect-square max-w-sm mx-auto rounded-2xl overflow-hidden bg-muted border border-border">
         <canvas ref={canvasRef} className="hidden" />
 
-        {(status === 'scanning' || status === 'success') ? (
-          <>
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-            {status === 'scanning' && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-48 h-48 relative">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg" />
-                </div>
-              </div>
-            )}
-            {status === 'success' && (
-              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                <div className="bg-white/90 rounded-full p-3">
-                  <CheckCircle2 size={40} className="text-green-600" />
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
+        {/* La vidéo reste toujours montée pour que videoRef existe au moment
+            où on branche le flux caméra (sinon srcObject est posé sur null). */}
+        <video
+          ref={videoRef}
+          className={`w-full h-full object-cover ${(status === 'scanning' || status === 'success') ? '' : 'hidden'}`}
+          playsInline
+          muted
+        />
+
+        {status === 'scanning' && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-48 h-48 relative">
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg" />
+            </div>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+            <div className="bg-white/90 rounded-full p-3">
+              <CheckCircle2 size={40} className="text-green-600" />
+            </div>
+          </div>
+        )}
+
+        {(status === 'idle' || status === 'requesting' || status === 'error') && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
             {status === 'requesting' && (
               <Loader2 size={32} className="animate-spin text-muted-foreground" />
             )}

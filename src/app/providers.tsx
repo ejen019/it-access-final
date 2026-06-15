@@ -37,10 +37,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        // IMPORTANT : ne pas `await` d'appels Supabase directement ici.
+        // GoTrue tient un verrou pendant le callback → tout appel DB/auth
+        // attendu ici provoque un deadlock (ex : login qui tourne sans fin).
+        // On défère donc loadProfile hors du verrou via setTimeout(0).
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
-            await loadProfile(session.user.id)
+            const uid = session.user.id
+            setTimeout(() => loadProfile(uid), 0)
           } else {
             setLoading(false)
           }
@@ -50,7 +55,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
             return
           }
-          await loadProfile(session.user.id)
+          const uid = session.user.id
+          setTimeout(() => loadProfile(uid), 0)
         } else if (event === 'SIGNED_OUT') {
           // Nettoyer le canal Realtime du profil
           if (profileChannelRef.current) {

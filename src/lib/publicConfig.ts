@@ -58,7 +58,9 @@ function writeLocalFallback(config: PublicAppConfig) {
 }
 
 export async function fetchPublicConfig(): Promise<PublicAppConfig> {
-  const { data, error } = await supabase
+  // `app_settings` n'est pas dans le schéma typé : on bypasse le typage et on
+  // retombe sur le localStorage si la table/colonne n'existe pas.
+  const { data, error } = await (supabase as any)
     .from('app_settings')
     .select('value')
     .eq('key', 'public_config')
@@ -78,7 +80,7 @@ export async function fetchPublicConfig(): Promise<PublicAppConfig> {
 
 export async function savePublicConfig(config: PublicAppConfig) {
   writeLocalFallback(config)
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('app_settings')
     .upsert(
       {

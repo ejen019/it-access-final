@@ -146,6 +146,7 @@ export function SudoDashboardPage() {
       await supabase.from('utilisateurs').update({ compte_valide: true, est_actif: true }).eq('id', userId)
       await supabase.from('notifications').insert({
         utilisateur_id: userId,
+        type: 'account_validated',
         titre: 'Compte validé',
         corps: 'Votre compte a été validé par un administrateur.',
         lien: '/',

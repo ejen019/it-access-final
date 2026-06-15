@@ -3,7 +3,7 @@
 // =============================================================
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, AlertTriangle, RefreshCw, ExternalLink, Loader2 } from 'lucide-react'
+import { Search, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react'
 import { useToutesInterventions } from '../../../features/interventions/hooks/useInterventions'
 
 // ----- Helpers -----

@@ -3,7 +3,6 @@ import {
   Monitor, Wrench, QrCode, FileText, MessageSquare,
   Shield, ArrowRight, CheckCircle2, ChevronRight,
   BarChart2, Clock, Users, Mail, MapPin, HelpCircle,
-  ScanLine, PenLine, Smartphone, Sparkles,
 } from 'lucide-react'
 
 const FEATURES = [

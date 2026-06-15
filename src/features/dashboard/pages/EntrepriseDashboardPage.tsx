@@ -56,17 +56,6 @@ function getGreeting() {
   return 'Bonsoir'
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  planifiee: 'Planifiée', en_cours: 'En cours',
-  terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
-}
-const STATUS_CLASS: Record<string, string> = {
-  planifiee: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
-  en_cours: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  terminee: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  signee: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
-  annulee: 'bg-muted text-muted-foreground',
-}
 
 export function EntrepriseDashboardPage() {
   const { profile } = useAuthStore()

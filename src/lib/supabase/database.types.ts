@@ -12,238 +12,65 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
-      utilisateurs: {
-        Row: {
-          id: string
-          email: string
-          nom: string
-          prenom: string | null
-          telephone: string | null
-          photo_url: string | null
-          role: 'super_admin' | 'admin' | 'technicien' | 'client'
-          compte_valide: boolean
-          est_actif: boolean
-          cree_le: string
-          modifie_le: string
-        }
-        Insert: {
-          id: string
-          email: string
-          nom: string
-          prenom?: string | null
-          telephone?: string | null
-          photo_url?: string | null
-          role: 'super_admin' | 'admin' | 'technicien' | 'client'
-          compte_valide?: boolean
-          est_actif?: boolean
-          cree_le?: string
-          modifie_le?: string
-        }
-        Update: {
-          id?: string
-          email?: string
-          nom?: string
-          prenom?: string | null
-          telephone?: string | null
-          photo_url?: string | null
-          role?: 'super_admin' | 'admin' | 'technicien' | 'client'
-          compte_valide?: boolean
-          est_actif?: boolean
-          cree_le?: string
-          modifie_le?: string
-        }
-        Relationships: []
-      }
       abonnements: {
         Row: {
           id: string
-          plan: 'starter' | 'medium' | 'premium'
-          montant: number
           max_equipements: number
           max_techniciens: number
+          montant: number
+          plan: string
         }
         Insert: {
           id?: string
-          plan: 'starter' | 'medium' | 'premium'
-          montant?: number
           max_equipements: number
           max_techniciens: number
+          montant?: number
+          plan: string
         }
         Update: {
           id?: string
-          plan?: 'starter' | 'medium' | 'premium'
-          montant?: number
           max_equipements?: number
           max_techniciens?: number
+          montant?: number
+          plan?: string
         }
         Relationships: []
       }
-      clients: {
-        Row: {
-          id: string
-          utilisateur_id: string
-          nom_entreprise: string
-          adresse: string | null
-          ville: string | null
-          telephone: string | null
-          secteur: string | null
-          logo_url: string | null
-          code_signature: string
-          cree_le: string
-          modifie_le: string
-        }
-        Insert: {
-          id?: string
-          utilisateur_id: string
-          nom_entreprise: string
-          adresse?: string | null
-          ville?: string | null
-          telephone?: string | null
-          secteur?: string | null
-          logo_url?: string | null
-          code_signature?: string
-          cree_le?: string
-          modifie_le?: string
-        }
-        Update: {
-          id?: string
-          utilisateur_id?: string
-          nom_entreprise?: string
-          adresse?: string | null
-          ville?: string | null
-          telephone?: string | null
-          secteur?: string | null
-          logo_url?: string | null
-          code_signature?: string
-          cree_le?: string
-          modifie_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "clients_utilisateur_id_fkey"
-            columns: ["utilisateur_id"]
-            isOneToOne: true
-            referencedRelation: "utilisateurs"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      techniciens: {
-        Row: {
-          id: string
-          utilisateur_id: string
-          specialite: string | null
-          cree_le: string
-        }
-        Insert: {
-          id?: string
-          utilisateur_id: string
-          specialite?: string | null
-          cree_le?: string
-        }
-        Update: {
-          id?: string
-          utilisateur_id?: string
-          specialite?: string | null
-          cree_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "techniciens_utilisateur_id_fkey"
-            columns: ["utilisateur_id"]
-            isOneToOne: true
-            referencedRelation: "utilisateurs"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      contrats: {
-        Row: {
-          id: string
-          client_id: string
-          abonnement_id: string | null
-          date_debut: string
-          date_fin: string
-          nbr_equip_actuel: number
-          nbr_techniciens_actuel: number
-          est_actif: boolean
-          raison: string | null
-          cree_le: string
-          modifie_le: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          abonnement_id?: string | null
-          date_debut?: string
-          date_fin?: string
-          nbr_equip_actuel?: number
-          nbr_techniciens_actuel?: number
-          est_actif?: boolean
-          raison?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          abonnement_id?: string | null
-          date_debut?: string
-          date_fin?: string
-          nbr_equip_actuel?: number
-          nbr_techniciens_actuel?: number
-          est_actif?: boolean
-          raison?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contrats_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contrats_abonnement_id_fkey"
-            columns: ["abonnement_id"]
-            isOneToOne: false
-            referencedRelation: "abonnements"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       affectations: {
         Row: {
+          affecte_le: string
+          affecte_par: string
+          client_id: string
           id: string
           technicien_id: string
-          client_id: string
-          affecte_par: string
-          affecte_le: string
         }
         Insert: {
+          affecte_le?: string
+          affecte_par: string
+          client_id: string
           id?: string
           technicien_id: string
-          client_id: string
-          affecte_par: string
-          affecte_le?: string
         }
         Update: {
+          affecte_le?: string
+          affecte_par?: string
+          client_id?: string
           id?: string
           technicien_id?: string
-          client_id?: string
-          affecte_par?: string
-          affecte_le?: string
         }
         Relationships: [
           {
-            foreignKeyName: "affectations_technicien_id_fkey"
-            columns: ["technicien_id"]
+            foreignKeyName: "affectations_affecte_par_fkey"
+            columns: ["affecte_par"]
             isOneToOne: false
-            referencedRelation: "techniciens"
+            referencedRelation: "utilisateurs"
             referencedColumns: ["id"]
           },
           {
@@ -252,63 +79,367 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "affectations_technicien_id_fkey"
+            columns: ["technicien_id"]
+            isOneToOne: false
+            referencedRelation: "techniciens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          adresse: string | null
+          code_signature: string
+          cree_le: string
+          id: string
+          logo_url: string | null
+          modifie_le: string
+          nom_entreprise: string
+          secteur: string | null
+          telephone: string | null
+          utilisateur_id: string
+          ville: string | null
+        }
+        Insert: {
+          adresse?: string | null
+          code_signature?: string
+          cree_le?: string
+          id?: string
+          logo_url?: string | null
+          modifie_le?: string
+          nom_entreprise: string
+          secteur?: string | null
+          telephone?: string | null
+          utilisateur_id: string
+          ville?: string | null
+        }
+        Update: {
+          adresse?: string | null
+          code_signature?: string
+          cree_le?: string
+          id?: string
+          logo_url?: string | null
+          modifie_le?: string
+          nom_entreprise?: string
+          secteur?: string | null
+          telephone?: string | null
+          utilisateur_id?: string
+          ville?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_utilisateur_id_fkey"
+            columns: ["utilisateur_id"]
+            isOneToOne: true
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contrats: {
+        Row: {
+          abonnement_id: string | null
+          client_id: string
+          cree_le: string
+          date_debut: string
+          date_fin: string
+          est_actif: boolean
+          id: string
+          modifie_le: string
+          nbr_equip_actuel: number
+          nbr_techniciens_actuel: number
+          raison: string | null
+        }
+        Insert: {
+          abonnement_id?: string | null
+          client_id: string
+          cree_le?: string
+          date_debut?: string
+          date_fin?: string
+          est_actif?: boolean
+          id?: string
+          modifie_le?: string
+          nbr_equip_actuel?: number
+          nbr_techniciens_actuel?: number
+          raison?: string | null
+        }
+        Update: {
+          abonnement_id?: string | null
+          client_id?: string
+          cree_le?: string
+          date_debut?: string
+          date_fin?: string
+          est_actif?: boolean
+          id?: string
+          modifie_le?: string
+          nbr_equip_actuel?: number
+          nbr_techniciens_actuel?: number
+          raison?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrats_abonnement_id_fkey"
+            columns: ["abonnement_id"]
+            isOneToOne: false
+            referencedRelation: "abonnements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrats_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demandes_maintenance: {
+        Row: {
+          client_id: string
+          cree_le: string
+          cree_par: string
+          description: string
+          equipement_id: string
+          etat: string
+          id: string
+          intervention_planifiee_id: string | null
+          modifie_le: string
+          urgence: string
+        }
+        Insert: {
+          client_id: string
+          cree_le?: string
+          cree_par: string
+          description: string
+          equipement_id: string
+          etat?: string
+          id?: string
+          intervention_planifiee_id?: string | null
+          modifie_le?: string
+          urgence?: string
+        }
+        Update: {
+          client_id?: string
+          cree_le?: string
+          cree_par?: string
+          description?: string
+          equipement_id?: string
+          etat?: string
+          id?: string
+          intervention_planifiee_id?: string | null
+          modifie_le?: string
+          urgence?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demandes_maintenance_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_maintenance_cree_par_fkey"
+            columns: ["cree_par"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_maintenance_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_intervention_planifiee"
+            columns: ["intervention_planifiee_id"]
+            isOneToOne: false
+            referencedRelation: "interventions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demandes_modification: {
+        Row: {
+          action: string
+          client_id: string
+          cree_le: string
+          demande_par: string
+          donnees: Json
+          equipement_id: string | null
+          id: string
+          modifie_le: string
+          note_revision: string | null
+          revise_le: string | null
+          revise_par: string | null
+          statut: string
+        }
+        Insert: {
+          action: string
+          client_id: string
+          cree_le?: string
+          demande_par: string
+          donnees?: Json
+          equipement_id?: string | null
+          id?: string
+          modifie_le?: string
+          note_revision?: string | null
+          revise_le?: string | null
+          revise_par?: string | null
+          statut?: string
+        }
+        Update: {
+          action?: string
+          client_id?: string
+          cree_le?: string
+          demande_par?: string
+          donnees?: Json
+          equipement_id?: string | null
+          id?: string
+          modifie_le?: string
+          note_revision?: string | null
+          revise_le?: string | null
+          revise_par?: string | null
+          statut?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demandes_modification_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_modification_demande_par_fkey"
+            columns: ["demande_par"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_modification_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandes_modification_revise_par_fkey"
+            columns: ["revise_par"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents_equipement: {
+        Row: {
+          equipement_id: string
+          id: string
+          nom: string
+          taille_fichier: number
+          type_fichier: string
+          uploade_le: string
+          uploade_par: string
+          url_fichier: string
+        }
+        Insert: {
+          equipement_id: string
+          id?: string
+          nom: string
+          taille_fichier: number
+          type_fichier: string
+          uploade_le?: string
+          uploade_par: string
+          url_fichier: string
+        }
+        Update: {
+          equipement_id?: string
+          id?: string
+          nom?: string
+          taille_fichier?: number
+          type_fichier?: string
+          uploade_le?: string
+          uploade_par?: string
+          url_fichier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_equipement_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_equipement_uploade_par_fkey"
+            columns: ["uploade_par"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       equipements: {
         Row: {
-          id: string
-          client_id: string
-          nom: string
-          modele: string | null
-          numero_serie: string | null
           categorie: string | null
-          emplacement: string | null
-          date_achat: string | null
-          fin_garantie: string | null
-          etat: 'operationnel' | 'maintenance' | 'en_panne'
-          qr_code: string
-          photos: string[]
-          notes: string | null
-          cree_par: string
+          client_id: string
           cree_le: string
+          cree_par: string
+          date_achat: string | null
+          emplacement: string | null
+          etat: string
+          fin_garantie: string | null
+          id: string
+          modele: string | null
           modifie_le: string
+          nom: string
+          notes: string | null
+          numero_serie: string | null
+          photos: string[]
+          qr_code: string
         }
         Insert: {
-          id?: string
-          client_id: string
-          nom: string
-          modele?: string | null
-          numero_serie?: string | null
           categorie?: string | null
-          emplacement?: string | null
-          date_achat?: string | null
-          fin_garantie?: string | null
-          etat?: 'operationnel' | 'maintenance' | 'en_panne'
-          qr_code: string
-          photos?: string[]
-          notes?: string | null
-          cree_par: string
+          client_id: string
           cree_le?: string
+          cree_par: string
+          date_achat?: string | null
+          emplacement?: string | null
+          etat?: string
+          fin_garantie?: string | null
+          id?: string
+          modele?: string | null
           modifie_le?: string
+          nom: string
+          notes?: string | null
+          numero_serie?: string | null
+          photos?: string[]
+          qr_code: string
         }
         Update: {
-          id?: string
-          client_id?: string
-          nom?: string
-          modele?: string | null
-          numero_serie?: string | null
           categorie?: string | null
-          emplacement?: string | null
-          date_achat?: string | null
-          fin_garantie?: string | null
-          etat?: 'operationnel' | 'maintenance' | 'en_panne'
-          qr_code?: string
-          photos?: string[]
-          notes?: string | null
-          cree_par?: string
+          client_id?: string
           cree_le?: string
+          cree_par?: string
+          date_achat?: string | null
+          emplacement?: string | null
+          etat?: string
+          fin_garantie?: string | null
+          id?: string
+          modele?: string | null
           modifie_le?: string
+          nom?: string
+          notes?: string | null
+          numero_serie?: string | null
+          photos?: string[]
+          qr_code?: string
         }
         Relationships: [
           {
@@ -324,205 +455,57 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "utilisateurs"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      documents_equipement: {
-        Row: {
-          id: string
-          equipement_id: string
-          nom: string
-          url_fichier: string
-          type_fichier: 'docx' | 'pdf' | 'txt'
-          taille_fichier: number
-          uploade_par: string
-          uploade_le: string
-        }
-        Insert: {
-          id?: string
-          equipement_id: string
-          nom: string
-          url_fichier: string
-          type_fichier: 'docx' | 'pdf' | 'txt'
-          taille_fichier: number
-          uploade_par: string
-          uploade_le?: string
-        }
-        Update: {
-          id?: string
-          equipement_id?: string
-          nom?: string
-          url_fichier?: string
-          type_fichier?: 'docx' | 'pdf' | 'txt'
-          taille_fichier?: number
-          uploade_par?: string
-          uploade_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "documents_equipement_equipement_id_fkey"
-            columns: ["equipement_id"]
-            isOneToOne: false
-            referencedRelation: "equipements"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      demandes_modification: {
-        Row: {
-          id: string
-          client_id: string
-          equipement_id: string | null
-          demande_par: string
-          action: 'ajout' | 'modifier' | 'supprimer'
-          donnees: Json
-          statut: 'en_attente' | 'approuvee' | 'rejetee'
-          note_revision: string | null
-          revise_par: string | null
-          revise_le: string | null
-          cree_le: string
-          modifie_le: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          equipement_id?: string | null
-          demande_par: string
-          action: 'ajout' | 'modifier' | 'supprimer'
-          donnees?: Json
-          statut?: 'en_attente' | 'approuvee' | 'rejetee'
-          note_revision?: string | null
-          revise_par?: string | null
-          revise_le?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          equipement_id?: string | null
-          demande_par?: string
-          action?: 'ajout' | 'modifier' | 'supprimer'
-          donnees?: Json
-          statut?: 'en_attente' | 'approuvee' | 'rejetee'
-          note_revision?: string | null
-          revise_par?: string | null
-          revise_le?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "demandes_modification_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      demandes_maintenance: {
-        Row: {
-          id: string
-          client_id: string
-          equipement_id: string
-          description: string
-          urgence: 'faible' | 'moyenne' | 'critique'
-          etat: 'en_attente' | 'planifiee' | 'rejetee' | 'annulee'
-          cree_par: string
-          intervention_planifiee_id: string | null
-          cree_le: string
-          modifie_le: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          equipement_id: string
-          description: string
-          urgence?: 'faible' | 'moyenne' | 'critique'
-          etat?: 'en_attente' | 'planifiee' | 'rejetee' | 'annulee'
-          cree_par: string
-          intervention_planifiee_id?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          equipement_id?: string
-          description?: string
-          urgence?: 'faible' | 'moyenne' | 'critique'
-          etat?: 'en_attente' | 'planifiee' | 'rejetee' | 'annulee'
-          cree_par?: string
-          intervention_planifiee_id?: string | null
-          cree_le?: string
-          modifie_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "demandes_maintenance_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "demandes_maintenance_equipement_id_fkey"
-            columns: ["equipement_id"]
-            isOneToOne: false
-            referencedRelation: "equipements"
-            referencedColumns: ["id"]
-          }
         ]
       }
       interventions: {
         Row: {
-          id: string
           client_id: string
-          titre: string
+          cloturee_le: string | null
+          cree_le: string
+          cree_par: string
           description: string
-          type_planification: 'reparation' | 'periodique'
-          statut: 'planifiee' | 'en_cours' | 'terminee' | 'signee' | 'annulee'
-          urgence: 'faible' | 'moyenne' | 'critique'
+          id: string
+          modifie_le: string
           photos: string[]
           planifie_le: string | null
           signee_le: string | null
-          cree_par: string
-          cloturee_le: string | null
-          cree_le: string
-          modifie_le: string
+          statut: string
+          titre: string
+          type_planification: string
+          urgence: string
         }
         Insert: {
-          id?: string
           client_id: string
-          titre: string
+          cloturee_le?: string | null
+          cree_le?: string
+          cree_par: string
           description: string
-          type_planification?: 'reparation' | 'periodique'
-          statut?: 'planifiee' | 'en_cours' | 'terminee' | 'signee' | 'annulee'
-          urgence?: 'faible' | 'moyenne' | 'critique'
+          id?: string
+          modifie_le?: string
           photos?: string[]
           planifie_le?: string | null
           signee_le?: string | null
-          cree_par: string
-          cloturee_le?: string | null
-          cree_le?: string
-          modifie_le?: string
+          statut?: string
+          titre: string
+          type_planification?: string
+          urgence?: string
         }
         Update: {
-          id?: string
           client_id?: string
-          titre?: string
+          cloturee_le?: string | null
+          cree_le?: string
+          cree_par?: string
           description?: string
-          type_planification?: 'reparation' | 'periodique'
-          statut?: 'planifiee' | 'en_cours' | 'terminee' | 'signee' | 'annulee'
-          urgence?: 'faible' | 'moyenne' | 'critique'
+          id?: string
+          modifie_le?: string
           photos?: string[]
           planifie_le?: string | null
           signee_le?: string | null
-          cree_par?: string
-          cloturee_le?: string | null
-          cree_le?: string
-          modifie_le?: string
+          statut?: string
+          titre?: string
+          type_planification?: string
+          urgence?: string
         }
         Relationships: [
           {
@@ -531,23 +514,37 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "interventions_cree_par_fkey"
+            columns: ["cree_par"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       interventions_equipements: {
         Row: {
-          intervention_id: string
           equipement_id: string
+          intervention_id: string
         }
         Insert: {
-          intervention_id: string
           equipement_id: string
+          intervention_id: string
         }
         Update: {
-          intervention_id?: string
           equipement_id?: string
+          intervention_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "interventions_equipements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "interventions_equipements_intervention_id_fkey"
             columns: ["intervention_id"]
@@ -555,13 +552,6 @@ export type Database = {
             referencedRelation: "interventions"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "interventions_equipements_equipement_id_fkey"
-            columns: ["equipement_id"]
-            isOneToOne: false
-            referencedRelation: "equipements"
-            referencedColumns: ["id"]
-          }
         ]
       }
       interventions_techniciens: {
@@ -591,89 +581,83 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "techniciens"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
-      rapports_intervention: {
+      journaux_audit: {
         Row: {
-          id: string
-          intervention_id: string
-          description: string
-          pieces_remplacees: string | null
-          rapport_travaux: string | null
-          url_signature: string | null
-          url_pdf: string | null
-          date_debut: string | null
-          date_fin: string | null
+          acteur_id: string | null
+          action: string
           cree_le: string
+          details: Json
+          entite_id: string | null
+          id: string
+          role_acteur: string | null
+          type_entite: string
         }
         Insert: {
-          id?: string
-          intervention_id: string
-          description: string
-          pieces_remplacees?: string | null
-          rapport_travaux?: string | null
-          url_signature?: string | null
-          url_pdf?: string | null
-          date_debut?: string | null
-          date_fin?: string | null
+          acteur_id?: string | null
+          action: string
           cree_le?: string
+          details?: Json
+          entite_id?: string | null
+          id?: string
+          role_acteur?: string | null
+          type_entite: string
         }
         Update: {
-          id?: string
-          intervention_id?: string
-          description?: string
-          pieces_remplacees?: string | null
-          rapport_travaux?: string | null
-          url_signature?: string | null
-          url_pdf?: string | null
-          date_debut?: string | null
-          date_fin?: string | null
+          acteur_id?: string | null
+          action?: string
           cree_le?: string
+          details?: Json
+          entite_id?: string | null
+          id?: string
+          role_acteur?: string | null
+          type_entite?: string
         }
         Relationships: [
           {
-            foreignKeyName: "rapports_intervention_intervention_id_fkey"
-            columns: ["intervention_id"]
-            isOneToOne: true
-            referencedRelation: "interventions"
+            foreignKeyName: "journaux_audit_acteur_id_fkey"
+            columns: ["acteur_id"]
+            isOneToOne: false
+            referencedRelation: "utilisateurs"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       messages: {
         Row: {
-          id: string
-          conversation_id: string
-          expediteur_id: string
           contenu: string
-          reponse_a_id: string | null
-          lu: boolean
-          est_modifie: boolean
-          edite_le: string | null
+          conversation_id: string
           cree_le: string
+          edite_le: string | null
+          est_modifie: boolean
+          expediteur_id: string
+          id: string
+          lu: boolean
+          reponse_a_id: string | null
         }
         Insert: {
-          id?: string
-          conversation_id: string
-          expediteur_id: string
           contenu: string
-          reponse_a_id?: string | null
-          lu?: boolean
-          est_modifie?: boolean
-          edite_le?: string | null
+          conversation_id: string
           cree_le?: string
+          edite_le?: string | null
+          est_modifie?: boolean
+          expediteur_id: string
+          id?: string
+          lu?: boolean
+          reponse_a_id?: string | null
         }
         Update: {
-          id?: string
-          conversation_id?: string
-          expediteur_id?: string
           contenu?: string
-          reponse_a_id?: string | null
-          lu?: boolean
-          est_modifie?: boolean
-          edite_le?: string | null
+          conversation_id?: string
           cree_le?: string
+          edite_le?: string | null
+          est_modifie?: boolean
+          expediteur_id?: string
+          id?: string
+          lu?: boolean
+          reponse_a_id?: string | null
         }
         Relationships: [
           {
@@ -689,74 +673,39 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      pieces_jointes_message: {
-        Row: {
-          id: string
-          message_id: string
-          nom: string
-          url_fichier: string
-          type_fichier: string
-          taille_fichier: number
-        }
-        Insert: {
-          id?: string
-          message_id: string
-          nom: string
-          url_fichier: string
-          type_fichier: string
-          taille_fichier: number
-        }
-        Update: {
-          id?: string
-          message_id?: string
-          nom?: string
-          url_fichier?: string
-          type_fichier?: string
-          taille_fichier?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pieces_jointes_message_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          }
+          },
         ]
       }
       notifications: {
         Row: {
-          id: string
-          utilisateur_id: string
-          type: string
-          titre: string
           corps: string
-          lien: string | null
-          est_lu: boolean
           cree_le: string
+          est_lu: boolean
+          id: string
+          lien: string | null
+          titre: string
+          type: string
+          utilisateur_id: string
         }
         Insert: {
-          id?: string
-          utilisateur_id: string
-          type: string
-          titre: string
           corps: string
-          lien?: string | null
-          est_lu?: boolean
           cree_le?: string
+          est_lu?: boolean
+          id?: string
+          lien?: string | null
+          titre: string
+          type: string
+          utilisateur_id: string
         }
         Update: {
-          id?: string
-          utilisateur_id?: string
-          type?: string
-          titre?: string
           corps?: string
-          lien?: string | null
-          est_lu?: boolean
           cree_le?: string
+          est_lu?: boolean
+          id?: string
+          lien?: string | null
+          titre?: string
+          type?: string
+          utilisateur_id?: string
         }
         Relationships: [
           {
@@ -765,65 +714,180 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "utilisateurs"
             referencedColumns: ["id"]
-          }
-        ]
-      }
-      journaux_audit: {
-        Row: {
-          id: string
-          acteur_id: string | null
-          role_acteur: string | null
-          action: string
-          type_entite: string
-          entite_id: string | null
-          details: Json
-          cree_le: string
-        }
-        Insert: {
-          id?: string
-          acteur_id?: string | null
-          role_acteur?: string | null
-          action: string
-          type_entite: string
-          entite_id?: string | null
-          details?: Json
-          cree_le?: string
-        }
-        Update: {
-          id?: string
-          acteur_id?: string | null
-          role_acteur?: string | null
-          action?: string
-          type_entite?: string
-          entite_id?: string | null
-          details?: Json
-          cree_le?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "journaux_audit_acteur_id_fkey"
-            columns: ["acteur_id"]
-            isOneToOne: false
-            referencedRelation: "utilisateurs"
-            referencedColumns: ["id"]
-          }
+          },
         ]
       }
       parametres_application: {
         Row: {
           cle: string
-          valeur: Json
           modifie_le: string
+          valeur: Json
         }
         Insert: {
           cle: string
-          valeur?: Json
           modifie_le?: string
+          valeur?: Json
         }
         Update: {
           cle?: string
-          valeur?: Json
           modifie_le?: string
+          valeur?: Json
+        }
+        Relationships: []
+      }
+      pieces_jointes_message: {
+        Row: {
+          id: string
+          message_id: string
+          nom: string
+          taille_fichier: number
+          type_fichier: string
+          url_fichier: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          nom: string
+          taille_fichier: number
+          type_fichier: string
+          url_fichier: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          nom?: string
+          taille_fichier?: number
+          type_fichier?: string
+          url_fichier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pieces_jointes_message_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rapports_intervention: {
+        Row: {
+          cree_le: string
+          date_debut: string | null
+          date_fin: string | null
+          description: string | null
+          id: string
+          intervention_id: string
+          notes_complementaires: string | null
+          pieces_remplacees: string | null
+          rapport_travaux: string | null
+          url_pdf: string | null
+          url_signature: string | null
+        }
+        Insert: {
+          cree_le?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          description?: string | null
+          id?: string
+          intervention_id: string
+          notes_complementaires?: string | null
+          pieces_remplacees?: string | null
+          rapport_travaux?: string | null
+          url_pdf?: string | null
+          url_signature?: string | null
+        }
+        Update: {
+          cree_le?: string
+          date_debut?: string | null
+          date_fin?: string | null
+          description?: string | null
+          id?: string
+          intervention_id?: string
+          notes_complementaires?: string | null
+          pieces_remplacees?: string | null
+          rapport_travaux?: string | null
+          url_pdf?: string | null
+          url_signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rapports_intervention_intervention_id_fkey"
+            columns: ["intervention_id"]
+            isOneToOne: true
+            referencedRelation: "interventions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      techniciens: {
+        Row: {
+          cree_le: string
+          id: string
+          specialite: string | null
+          utilisateur_id: string
+        }
+        Insert: {
+          cree_le?: string
+          id?: string
+          specialite?: string | null
+          utilisateur_id: string
+        }
+        Update: {
+          cree_le?: string
+          id?: string
+          specialite?: string | null
+          utilisateur_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "techniciens_utilisateur_id_fkey"
+            columns: ["utilisateur_id"]
+            isOneToOne: true
+            referencedRelation: "utilisateurs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utilisateurs: {
+        Row: {
+          compte_valide: boolean
+          cree_le: string
+          email: string
+          est_actif: boolean
+          id: string
+          modifie_le: string
+          nom: string
+          photo_url: string | null
+          prenom: string | null
+          role: string
+          telephone: string | null
+        }
+        Insert: {
+          compte_valide?: boolean
+          cree_le?: string
+          email: string
+          est_actif?: boolean
+          id: string
+          modifie_le?: string
+          nom: string
+          photo_url?: string | null
+          prenom?: string | null
+          role: string
+          telephone?: string | null
+        }
+        Update: {
+          compte_valide?: boolean
+          cree_le?: string
+          email?: string
+          est_actif?: boolean
+          id?: string
+          modifie_le?: string
+          nom?: string
+          photo_url?: string | null
+          prenom?: string | null
+          role?: string
+          telephone?: string | null
         }
         Relationships: []
       }
@@ -832,11 +896,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      mon_role: { Args: Record<PropertyKey, never>; Returns: string }
+      mes_clients: { Args: Record<PropertyKey, never>; Returns: string[] }
       mes_contacts_messagerie: {
         Args: Record<PropertyKey, never>
-        Returns: { id: string; nom: string; prenom: string | null; role: string; email: string }[]
+        Returns: {
+          email: string
+          id: string
+          nom: string
+          prenom: string
+          role: string
+        }[]
       }
+      mes_interventions_client: { Args: Record<PropertyKey, never>; Returns: string[] }
+      mes_interventions_tech: { Args: Record<PropertyKey, never>; Returns: string[] }
+      mon_role: { Args: Record<PropertyKey, never>; Returns: string }
+      mon_technicien_id: { Args: Record<PropertyKey, never>; Returns: string }
     }
     Enums: {
       [_ in never]: never
@@ -846,31 +920,3 @@ export type Database = {
     }
   }
 }
-
-type DefaultSchema = Database["public"]
-
-export type Tables<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Row"]
-
-export type TablesInsert<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Insert"]
-
-export type TablesUpdate<T extends keyof DefaultSchema["Tables"]> =
-  DefaultSchema["Tables"][T]["Update"]
-
-// Raccourcis pratiques
-export type Utilisateur    = Tables<'utilisateurs'>
-export type Client         = Tables<'clients'>
-export type Technicien     = Tables<'techniciens'>
-export type Contrat        = Tables<'contrats'>
-export type Abonnement     = Tables<'abonnements'>
-export type Affectation    = Tables<'affectations'>
-export type Equipement     = Tables<'equipements'>
-export type DocumentEquipement = Tables<'documents_equipement'>
-export type DemandeModification = Tables<'demandes_modification'>
-export type DemandeMaintenance  = Tables<'demandes_maintenance'>
-export type Intervention   = Tables<'interventions'>
-export type RapportIntervention = Tables<'rapports_intervention'>
-export type Message        = Tables<'messages'>
-export type Notification   = Tables<'notifications'>
-export type JournalAudit   = Tables<'journaux_audit'>

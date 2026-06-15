@@ -3,9 +3,9 @@
 // =============================================================
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { NetworkStatus } from '../types'
 
 type Theme = 'light' | 'dark' | 'system'
+type NetworkStatus = 'online' | 'offline'
 
 interface UIState {
   theme: Theme

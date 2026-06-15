@@ -72,18 +72,25 @@ export function SudoParametresPage() {
     setLoading(true)
     const [{ data: paramData }, { data: planData }] = await Promise.all([
       supabase.from('parametres_application').select('*'),
-      supabase.from('abonnements').select('plan, prix_fcfa, max_equipements, max_techniciens'),
+      supabase.from('abonnements').select('plan, montant, max_equipements, max_techniciens'),
     ])
     const merged: Record<string, Record<string, string>> = {}
     for (const cfg of CONFIG_KEYS) {
       const row = (paramData as Param[] | null)?.find(p => p.cle === cfg.cle)
-      merged[cfg.cle] = { ...DEFAULTS[cfg.cle], ...(row?.valeur ?? {}) }
+      merged[cfg.cle] = { ...DEFAULTS[cfg.cle], ...((row?.valeur as Record<string, string> | undefined) ?? {}) }
     }
     setParams(merged)
     if (planData && planData.length > 0) {
       setPlans(DEFAULT_PLANS.map(dp => {
-        const row = planData.find((r: any) => r.plan === dp.plan)
-        return row ? { ...dp, ...row } : dp
+        const row = (planData as any[]).find(r => r.plan === dp.plan)
+        return row
+          ? {
+              plan: dp.plan,
+              prix_fcfa: row.montant ?? dp.prix_fcfa,
+              max_equipements: row.max_equipements ?? dp.max_equipements,
+              max_techniciens: row.max_techniciens ?? dp.max_techniciens,
+            }
+          : dp
       }))
     }
     setLoading(false)
@@ -113,7 +120,7 @@ export function SudoParametresPage() {
     for (const row of plans) {
       const { error: err } = await supabase
         .from('abonnements')
-        .upsert({ plan: row.plan, prix_fcfa: row.prix_fcfa, max_equipements: row.max_equipements, max_techniciens: row.max_techniciens }, { onConflict: 'plan' })
+        .upsert({ plan: row.plan, montant: row.prix_fcfa, max_equipements: row.max_equipements, max_techniciens: row.max_techniciens }, { onConflict: 'plan' })
       if (err) { setError(err.message); setSavingPlans(false); return }
     }
     setSavingPlans(false)

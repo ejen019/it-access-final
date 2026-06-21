@@ -236,8 +236,20 @@ select {
   padding-right: 2.25rem;
 }
 
-/* ----- Badges / pills : espacement intérieur augmenté ----- */
+/* Harmonise le menu natif déroulant avec le thème (surtout en mode sombre).
+   Pris en charge par Chrome/Edge/Firefox ; iOS/Safari gardent le picker système. */
+select option {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+select option:checked {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+/* ----- Badges / pills : espacement intérieur + pas de retour à la ligne ----- */
 .badge, [class*="rounded-full"][class*="text-xs"], [class*="rounded-full"][class*="text-sm"] {
   padding-inline: 0.625rem;
   padding-block: 0.3rem;
+  white-space: nowrap;
 }

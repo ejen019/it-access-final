@@ -56,8 +56,9 @@
    Bleu de marque #3B82F6 = hsl(217 91% 60%) dans les deux modes.
 --------------------------------------------------------- */
 :root {
-  /* Light mode DeepSeek : #F9FAFB / #FFFFFF / #111827 */
-  --background: 220 14% 98%;
+  /* Light mode : fond légèrement teinté (pas blanc pur) pour que les cartes
+     blanches ressortent ; texte secondaire assombri pour la lisibilité. */
+  --background: 220 23% 95%;        /* #EDF0F5 — plus doux que blanc */
   --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
@@ -69,13 +70,13 @@
   --primary: 217 91% 60%;          /* #3B82F6 */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 220 9% 46%;
+  --secondary: 220 16% 92%;
+  --secondary-foreground: 220 12% 38%;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 46%;   /* #6B7280 */
+  --muted: 220 18% 92%;
+  --muted-foreground: 220 11% 40%;  /* assombri (#5B6472) pour meilleur contraste */
 
-  --accent: 220 14% 94%;
+  --accent: 220 17% 89%;
   --accent-foreground: 222 47% 11%;
 
   --destructive: 0 84% 60%;         /* #EF4444 */
@@ -150,6 +151,11 @@ code, kbd, pre, .font-mono {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
+
+/* Masque la barre de défilement (ex : barres d'onglets scrollables horizontalement)
+   tout en gardant le défilement tactile/molette. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ----- Utilitaires personnalisés ----- */
 /*

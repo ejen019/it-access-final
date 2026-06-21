@@ -250,7 +250,7 @@ export function SudoDashboardPage() {
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-0.5 bg-muted p-1 rounded-lg w-fit overflow-x-auto">
+      <div className="flex gap-0.5 bg-muted p-1 rounded-lg w-fit max-w-full overflow-x-auto no-scrollbar">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

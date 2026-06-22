@@ -133,6 +133,7 @@ export function SudoDashboardPage() {
     queryKey: ['sudo-stats'],
     queryFn: fetchSudoStats,
     refetchInterval: 30_000,
+    staleTime: 0,
   })
 
   const { data: companies = [], isLoading: companiesLoading } = useQuery({
@@ -385,7 +386,7 @@ export function SudoDashboardPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                       admin.est_actif
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300'
                         : 'bg-muted text-muted-foreground'
                     }`}>
                       {admin.est_actif ? 'Actif' : 'Inactif'}

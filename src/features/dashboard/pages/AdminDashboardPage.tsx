@@ -95,6 +95,7 @@ export function AdminDashboardPage() {
     queryKey: ['admin-dashboard-stats'],
     queryFn: fetchAdminStats,
     refetchInterval: 60_000,
+    staleTime: 0,
   })
 
   if (isLoading) {

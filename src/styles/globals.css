@@ -253,9 +253,10 @@ select option:checked {
   color: hsl(var(--accent-foreground));
 }
 
-/* ----- Badges / pills : espacement intérieur + pas de retour à la ligne ----- */
+/* ----- Badges / pills : espacement intérieur + pas de retour à la ligne + texte net ----- */
 .badge, [class*="rounded-full"][class*="text-xs"], [class*="rounded-full"][class*="text-sm"] {
   padding-inline: 0.625rem;
   padding-block: 0.3rem;
   white-space: nowrap;
+  font-weight: 600;
 }

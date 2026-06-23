@@ -6,7 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, QrCode, Printer, FileText, AlertTriangle,
-  Calendar, MapPin, Tag, Edit2, Wrench, Download, ChevronRight,
+  Calendar, MapPin, Tag, Edit2, Wrench, Download, ChevronRight, Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -156,12 +156,32 @@ export function EquipmentPassportPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [showPanne, setShowPanne] = useState(false)
   const [remettrePending, setRemettrePending] = useState(false)
+  const [showDeleteRequest, setShowDeleteRequest] = useState(false)
+  const [deleteReqPending, setDeleteReqPending] = useState(false)
+
+  const isClient = profile?.role === 'client'
 
   const { data: equipment, isLoading } = useEquipementDetail(id)
   const { data: interventions = [] } = useQuery({
     queryKey: ['equipement-interventions', id],
     queryFn: () => fetchEquipementInterventions(id!),
     enabled: !!id,
+  })
+
+  // Demande de suppression en attente (côté client)
+  const { data: pendingDeletion } = useQuery({
+    queryKey: ['demande-suppression', id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('demandes_modification')
+        .select('id, statut')
+        .eq('equipement_id', id!)
+        .eq('action', 'suppression')
+        .eq('statut', 'en_attente')
+        .maybeSingle()
+      return data
+    },
+    enabled: !!id && isClient,
   })
 
   useEffect(() => {
@@ -233,6 +253,39 @@ export function EquipmentPassportPage() {
     }
   }
 
+  // Le client ne supprime pas directement : il crée une demande validée par l'admin.
+  async function handleRequestDeletion() {
+    if (!equipment || !id) return
+    setDeleteReqPending(true)
+    try {
+      await supabase.from('demandes_modification').insert({
+        action: 'suppression',
+        client_id: equipment.client_id,
+        equipement_id: id,
+        demande_par: profile!.id,
+        statut: 'en_attente',
+        donnees: { nom: equipment.nom },
+      })
+      const { data: admins } = await supabase
+        .from('utilisateurs').select('id').in('role', ['admin', 'super_admin'])
+      if (admins?.length) {
+        await supabase.from('notifications').insert(
+          admins.map((a: any) => ({
+            utilisateur_id: a.id,
+            type: 'demande_suppression',
+            titre: 'Demande de suppression',
+            corps: `${(equipment as any).clients?.nom_entreprise ?? 'Un client'} demande la suppression de « ${equipment.nom} ».`,
+            lien: '/admin/equipements',
+          }))
+        )
+      }
+      queryClient.invalidateQueries({ queryKey: ['demande-suppression', id] })
+      setShowDeleteRequest(false)
+    } finally {
+      setDeleteReqPending(false)
+    }
+  }
+
   return (
     <div className="page-transition">
       {/* Header */}
@@ -282,6 +335,21 @@ export function EquipmentPassportPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-full text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-60"
             >
               {remettrePending ? '…' : '✓'} Remettre en service
+            </button>
+          )}
+          {isClient && pendingDeletion && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 rounded-full text-sm font-medium">
+              <AlertTriangle size={14} />
+              Suppression demandée — en attente
+            </span>
+          )}
+          {isClient && !pendingDeletion && (
+            <button
+              onClick={() => setShowDeleteRequest(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-destructive/40 text-destructive rounded-full text-sm font-medium hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 size={14} />
+              Demander la suppression
             </button>
           )}
         </div>
@@ -402,6 +470,28 @@ export function EquipmentPassportPage() {
           )}
         </div>
       </div>
+
+      {/* Modal demande de suppression (client) */}
+      {showDeleteRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteRequest(false)}>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-foreground">Demander la suppression ?</h3>
+            <p className="text-sm text-muted-foreground">
+              <strong>{equipment.nom}</strong> ne sera pas supprimé immédiatement : votre demande sera envoyée à l'administrateur pour validation.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteRequest(false)}
+                className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors">
+                Annuler
+              </button>
+              <button onClick={handleRequestDeletion} disabled={deleteReqPending}
+                className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+                {deleteReqPending ? 'Envoi…' : 'Envoyer la demande'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal QR */}
       {showQr && qrDataUrl && (

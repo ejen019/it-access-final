@@ -25,7 +25,6 @@ dist-ssr
 
 # Supabase CLI temp
 supabase/.temp
-/.claude/
 
 # Documentation interne / tests (non versionnés sur develop)
 /docs/

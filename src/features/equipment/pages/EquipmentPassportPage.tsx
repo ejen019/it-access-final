@@ -6,11 +6,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, QrCode, Printer, FileText, AlertTriangle,
-  Calendar, MapPin, Tag, Edit2, Wrench, Download, ChevronRight, Trash2,
+  Calendar, MapPin, Tag, Edit2, Wrench, Download, ChevronRight, Trash2, Camera,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import { useEquipementDetail } from '../hooks/useEquipment'
+import { uploadPhotoIntervention } from '@/features/interventions/hooks/useInterventions'
 import { generateQRCodeDataUrl, getPassportUrl, printQRCode } from '@/lib/utils/qrcode'
 import { EquipmentForm } from '../components/EquipmentForm'
 import type { Equipement } from '@/types'
@@ -41,7 +42,14 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
 
   const [description, setDescription] = useState('')
   const [urgence, setUrgence] = useState<'faible' | 'moyenne' | 'critique'>('moyenne')
+  const [pannePhotos, setPannePhotos] = useState<File[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    setPannePhotos((prev) => [...prev, ...files].slice(0, 3))
+    e.target.value = ''
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -69,6 +77,12 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
           intervention_id: intervention.id,
           equipement_id: equipment.id,
         })
+
+        // Upload des photos jointes au signalement
+        if (pannePhotos.length > 0) {
+          const urls = await Promise.all(pannePhotos.map((f) => uploadPhotoIntervention(f, intervention.id)))
+          await supabase.from('interventions').update({ photos: urls }).eq('id', intervention.id)
+        }
 
         const { data: admins } = await supabase
           .from('utilisateurs').select('id').in('role', ['admin', 'super_admin'])
@@ -128,6 +142,25 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
                   {u}
                 </button>
               ))}
+            </div>
+          </div>
+          {/* Photos du problème (optionnel, max 3) */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Photos du problème (optionnel)</label>
+            <div className="flex gap-2 flex-wrap">
+              {pannePhotos.map((f, i) => (
+                <div key={i} className="relative w-16 h-16">
+                  <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover rounded-lg border border-border" />
+                  <button type="button" onClick={() => setPannePhotos((p) => p.filter((_, j) => j !== i))}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-xs">×</button>
+                </div>
+              ))}
+              {pannePhotos.length < 3 && (
+                <label className="w-16 h-16 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                  <Camera size={16} className="text-muted-foreground" />
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+                </label>
+              )}
             </div>
           </div>
           <div className="flex gap-3">

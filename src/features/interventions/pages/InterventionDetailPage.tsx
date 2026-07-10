@@ -578,11 +578,20 @@ export function InterventionDetailPage() {
 
       {/* ——— Bannière En attente (côté client) ——— */}
       {role === 'client' && enAttente && (
-        <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            Votre signalement est en attente de validation par un administrateur. Vous serez notifié dès qu'un technicien sera affecté.
-          </p>
+        <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              Votre signalement est en attente de validation par un administrateur. Vous serez notifié dès qu'un technicien sera affecté.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCancelConfirm(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-destructive/40 text-destructive rounded-lg text-sm font-medium hover:bg-destructive/10 transition-colors"
+          >
+            <Ban size={15} />
+            Annuler mon signalement
+          </button>
         </section>
       )}
 

@@ -66,10 +66,34 @@ export type EquipementInput = {
   etat?: 'operationnel' | 'maintenance' | 'en_panne'
 }
 
+// Contrôle du quota d'équipements selon le plan d'abonnement du client.
+// Correspond à Contrat.verifierLimites() / Abonnement.verifierQuota() du diagramme de classes.
+export async function verifierQuotaEquipements(clientId: string): Promise<void> {
+  const { data: contrat } = await supabase
+    .from('contrats')
+    .select('abonnements(plan, max_equipements)')
+    .eq('client_id', clientId)
+    .eq('est_actif', true)
+    .maybeSingle()
+  const abo = (contrat as any)?.abonnements
+  if (!abo) return // Aucun contrat actif : pas de limite applicable.
+  const { count } = await supabase
+    .from('equipements')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+  if ((count ?? 0) >= abo.max_equipements) {
+    throw new Error(
+      `Limite atteinte : le plan ${abo.plan} autorise ${abo.max_equipements} équipements maximum. Passez à un plan supérieur pour en ajouter davantage.`
+    )
+  }
+}
+
 export function useCreerEquipement() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: EquipementInput) => {
+      // Vérifie le quota du plan avant toute création.
+      await verifierQuotaEquipements(input.client_id)
       const { data, error } = await supabase
         .from('equipements')
         .insert({

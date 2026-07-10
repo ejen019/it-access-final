@@ -150,8 +150,8 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
         await Promise.all(pendingDocs.map((f) => uploadDocumentEquipement(f, equipementId, profile!.id)))
       }
       onSuccess()
-    } catch {
-      setError('Une erreur est survenue. Réessayez.')
+    } catch (err: any) {
+      setError(err?.message ?? 'Une erreur est survenue. Réessayez.')
     }
   }
 

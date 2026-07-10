@@ -2,9 +2,9 @@
 // EntrepriseDashboardPage — Tableau de bord entreprise
 // Style unifié : flat, compact, propre (même que SudoDashboard).
 // =============================================================
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Monitor, AlertTriangle, Wrench, PenLine, ArrowRight, Copy, CheckCircle2, Building2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Monitor, AlertTriangle, Wrench, PenLine, ArrowRight, Copy, CheckCircle2, Building2, RefreshCw, X } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -27,8 +27,9 @@ async function fetchContrat(clientId: string) {
     .from('contrats')
     .select('*, abonnements(*)')
     .eq('client_id', clientId)
-    .eq('est_actif', true)
-    .single()
+    .order('cree_le', { ascending: false })
+    .limit(1)
+    .maybeSingle()
   return data
 }
 
@@ -58,8 +59,12 @@ function getGreeting() {
 
 
 export function EntrepriseDashboardPage() {
-  const { profile } = useAuthStore()
+  const { profile, reset } = useAuthStore()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [codeCopied, setCodeCopied] = useState(false)
+  const [showResilier, setShowResilier] = useState(false)
+  const [contratBusy, setContratBusy] = useState(false)
 
   const { data: client } = useQuery({
     queryKey: ['my-company', profile?.id],
@@ -71,6 +76,36 @@ export function EntrepriseDashboardPage() {
     queryFn: () => fetchContrat(client!.id),
     enabled: !!client?.id,
   })
+
+  // Statut du contrat (expiration / résiliation)
+  const contratFin = contrat?.date_fin ? new Date(contrat.date_fin) : null
+  const joursRestants = contratFin ? Math.ceil((contratFin.getTime() - Date.now()) / 86400000) : null
+  const contratExpire = contrat ? (!contrat.est_actif || (joursRestants != null && joursRestants < 0)) : false
+  const contratBientot = contrat != null && contrat.est_actif && joursRestants != null && joursRestants >= 0 && joursRestants <= 30
+
+  async function renouvelerContrat() {
+    if (!contrat) return
+    setContratBusy(true)
+    try {
+      const fin = new Date(); fin.setFullYear(fin.getFullYear() + 1)
+      await supabase.from('contrats')
+        .update({ date_fin: fin.toISOString().slice(0, 10), est_actif: true, raison: null })
+        .eq('id', contrat.id)
+      queryClient.invalidateQueries({ queryKey: ['my-contrat', client?.id] })
+    } finally { setContratBusy(false) }
+  }
+
+  async function resilierContrat() {
+    if (!contrat || !profile) return
+    setContratBusy(true)
+    try {
+      await supabase.from('contrats').update({ est_actif: false, raison: 'Résilié par le client' }).eq('id', contrat.id)
+      await supabase.from('utilisateurs').update({ est_actif: false }).eq('id', profile.id)
+      await supabase.auth.signOut()
+      reset()
+      navigate('/connexion')
+    } finally { setContratBusy(false) }
+  }
   const { data: equipment = [] } = useClientEquipement(client?.id)
   const { data: interventions = [] } = useInterventionsClient(client?.id)
 
@@ -103,6 +138,38 @@ export function EntrepriseDashboardPage() {
           <h1 className="text-lg font-bold text-foreground leading-tight">{client?.nom_entreprise ?? 'Mon Espace'}</h1>
         </div>
       </div>
+
+      {/* Contrat : expiration / renouvellement */}
+      {contratExpire && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+              {contrat && !contrat.est_actif && (joursRestants == null || joursRestants >= 0) ? 'Contrat résilié / inactif' : 'Contrat expiré'}
+            </p>
+          </div>
+          <p className="text-xs text-red-600 dark:text-red-400">Renouvelez votre contrat pour continuer à bénéficier du service.</p>
+          <button onClick={renouvelerContrat} disabled={contratBusy}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60">
+            <RefreshCw size={14} className={contratBusy ? 'animate-spin' : ''} /> Renouveler (1 an)
+          </button>
+        </div>
+      )}
+      {contratBientot && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 flex items-center gap-3">
+          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              Votre contrat expire dans {joursRestants} jour{(joursRestants ?? 0) > 1 ? 's' : ''}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">Le {contratFin?.toLocaleDateString('fr-FR')}</p>
+          </div>
+          <button onClick={renouvelerContrat} disabled={contratBusy}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium disabled:opacity-60">
+            <RefreshCw size={13} className={contratBusy ? 'animate-spin' : ''} /> Renouveler
+          </button>
+        </div>
+      )}
 
       {/* Alertes actives */}
       {toSign > 0 && (
@@ -248,6 +315,37 @@ export function EntrepriseDashboardPage() {
               </div>
             </div>
           )}
+          {contrat.est_actif && (
+            <button onClick={() => setShowResilier(true)}
+              className="mt-3 text-xs text-destructive hover:underline">
+              Résilier mon contrat
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Modal résiliation */}
+      {showResilier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => !contratBusy && setShowResilier(false)}>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} className="text-destructive" />
+              <h3 className="font-semibold text-foreground">Résilier le contrat ?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Votre contrat sera résilié et votre compte <strong>désactivé</strong>. Vous ne pourrez plus vous connecter ni accéder à vos données (un administrateur pourra réactiver votre compte plus tard). Votre compte n'est pas supprimé.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowResilier(false)} disabled={contratBusy}
+                className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors">
+                Annuler
+              </button>
+              <button onClick={resilierContrat} disabled={contratBusy}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+                {contratBusy ? <RefreshCw size={14} className="animate-spin" /> : <X size={14} />} Résilier
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

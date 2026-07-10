@@ -3,7 +3,7 @@
 // =============================================================
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { User, Lock, Sun, Moon, Monitor, RefreshCw, Copy, CheckCircle2, Loader2, LogOut, Shield } from 'lucide-react'
+import { User, Lock, Sun, Moon, Monitor, RefreshCw, Copy, CheckCircle2, Loader2, LogOut, Shield, Building2, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom'
 async function fetchMyClient(userId: string) {
   const { data } = await supabase
     .from('clients')
-    .select('id, code_signature')
+    .select('id, code_signature, nom_entreprise, adresse, ville, secteur, telephone, logo_url')
     .eq('utilisateur_id', userId)
     .single()
   return data
@@ -77,6 +77,11 @@ export function ProfilePage() {
   const [codeCopied, setCodeCopied] = useState(false)
   const [codeRegenerating, setCodeRegenerating] = useState(false)
 
+  const [company, setCompany] = useState({ nom_entreprise: '', telephone: '', secteur: '', ville: '', adresse: '' })
+  const [companySaving, setCompanySaving] = useState(false)
+  const [companySaved, setCompanySaved] = useState(false)
+  const [logoUploading, setLogoUploading] = useState(false)
+
   const { data: client, refetch: refetchClient } = useQuery({
     queryKey: ['my-client-profile', profile?.id],
     queryFn: () => fetchMyClient(profile!.id),
@@ -88,6 +93,56 @@ export function ProfilePage() {
       setNomComplet((`${profile.prenom ?? ''} ${profile.nom ?? ''}`).trim() || profile.nom)
     }
   }, [profile?.id])
+
+  useEffect(() => {
+    if (client) {
+      setCompany({
+        nom_entreprise: (client as any).nom_entreprise ?? '',
+        telephone: (client as any).telephone ?? '',
+        secteur: (client as any).secteur ?? '',
+        ville: (client as any).ville ?? '',
+        adresse: (client as any).adresse ?? '',
+      })
+    }
+  }, [(client as any)?.id])
+
+  async function handleSaveCompany(e: React.FormEvent) {
+    e.preventDefault()
+    if (!client) return
+    setCompanySaving(true)
+    await supabase.from('clients').update({
+      nom_entreprise: company.nom_entreprise.trim(),
+      telephone: company.telephone || null,
+      secteur: company.secteur || null,
+      ville: company.ville || null,
+      adresse: company.adresse || null,
+    }).eq('id', client.id)
+    await refetchClient()
+    queryClient.invalidateQueries({ queryKey: ['my-company'] })
+    setCompanySaving(false)
+    setCompanySaved(true)
+    setTimeout(() => setCompanySaved(false), 2000)
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !client) return
+    if (file.size > 2 * 1024 * 1024) { e.target.value = ''; return }
+    setLogoUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `logos/${client.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('it-access-fichiers').upload(path, file, { upsert: true })
+      if (!error) {
+        const { data } = supabase.storage.from('it-access-fichiers').getPublicUrl(path)
+        await supabase.from('clients').update({ logo_url: data.publicUrl }).eq('id', client.id)
+        await refetchClient()
+      }
+    } finally {
+      setLogoUploading(false)
+      e.target.value = ''
+    }
+  }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -210,6 +265,67 @@ export function ProfilePage() {
           </button>
         </form>
       </section>
+
+      {role === 'client' && client && (
+        <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm xl:col-span-2">
+          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">
+            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Building2 size={14} className="text-primary" strokeWidth={1.8} />
+            </div>
+            <h2 className="font-semibold text-foreground text-sm">Informations de l'entreprise</h2>
+          </div>
+          <form onSubmit={handleSaveCompany} className="p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-lg border border-border bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
+                {(client as any).logo_url
+                  ? <img src={(client as any).logo_url} alt="logo" className="w-full h-full object-cover" />
+                  : <Building2 size={20} className="text-muted-foreground/40" />}
+              </div>
+              <label className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent cursor-pointer transition-colors">
+                {logoUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Logo (max 2 Mo)
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={logoUploading} />
+              </label>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Nom de l'entreprise</label>
+              <input type="text" required value={company.nom_entreprise}
+                onChange={(e) => setCompany((c) => ({ ...c, nom_entreprise: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Téléphone</label>
+                <input type="text" value={company.telephone}
+                  onChange={(e) => setCompany((c) => ({ ...c, telephone: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Secteur</label>
+                <input type="text" value={company.secteur}
+                  onChange={(e) => setCompany((c) => ({ ...c, secteur: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Ville</label>
+                <input type="text" value={company.ville}
+                  onChange={(e) => setCompany((c) => ({ ...c, ville: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Adresse</label>
+                <input type="text" value={company.adresse}
+                  onChange={(e) => setCompany((c) => ({ ...c, adresse: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+            </div>
+            <button type="submit" disabled={companySaving}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 gradient-primary text-white rounded-lg text-sm font-semibold disabled:opacity-60 shadow-sm">
+              {companySaving ? <Loader2 size={15} className="animate-spin" /> : companySaved ? <CheckCircle2 size={15} /> : null}
+              {companySaved ? 'Enregistré !' : 'Enregistrer les informations'}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="bg-card border border-border rounded-xl overflow-hidden shadow-sm xl:col-span-2">
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/20">

@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   ArrowLeft, AlertTriangle, Play, PenLine, CheckCircle2,
-  Camera, Loader2, Download, Ban, Wrench, Monitor, Users, Star,
+  Camera, Loader2, Download, Ban, Wrench, Monitor, Users, Star, X, Plus,
 } from 'lucide-react'
 import SignatureCanvas from 'react-signature-canvas'
 import jsPDF from 'jspdf'
@@ -328,6 +328,14 @@ export function InterventionDetailPage() {
   const updateStatus = useChangerStatutIntervention()
   const signMutation = useSignerIntervention()
 
+  const isAdminRole = role === 'admin' || role === 'super_admin'
+  const [techToAdd, setTechToAdd] = useState('')
+  const { data: allTechs = [] } = useQuery({
+    queryKey: ['all-techs'],
+    queryFn: fetchAllTechniciens,
+    enabled: isAdminRole,
+  })
+
   const [workReport, setWorkReport] = useState('')
   const [partsReplaced, setPartsReplaced] = useState('')
   const [techPhotos, setTechPhotos] = useState<string[]>([])
@@ -394,6 +402,29 @@ export function InterventionDetailPage() {
         lien: `/admin/interventions/${id}`,
       })))
     }
+    queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
+  }
+
+  // ----- Réaffectation avancée (admin) : ajouter / retirer des techniciens -----
+  async function removeTechAssignment(technicienId: string) {
+    await supabase.from('interventions_techniciens').delete()
+      .eq('intervention_id', id!).eq('technicien_id', technicienId)
+    queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
+  }
+
+  async function addTechAssignment() {
+    if (!techToAdd) return
+    await supabase.from('interventions_techniciens')
+      .insert({ intervention_id: id!, technicien_id: techToAdd, statut_affectation: 'en_attente' })
+    const { data: tech } = await supabase.from('techniciens').select('utilisateur_id').eq('id', techToAdd).maybeSingle()
+    if (tech?.utilisateur_id) {
+      await supabase.from('notifications').insert({
+        utilisateur_id: tech.utilisateur_id, type: 'affectation', titre: 'Intervention affectée',
+        corps: `Une intervention vous a été affectée : « ${(intervention as any).titre} ».`,
+        lien: `/technicien/interventions/${id}`,
+      })
+    }
+    setTechToAdd('')
     queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
   }
 
@@ -1063,6 +1094,53 @@ export function InterventionDetailPage() {
           </button>
         </section>
       )}
+
+      {/* ——— Réaffectation avancée (admin) : gérer les techniciens ——— */}
+      {isAdminRole && !enAttente && (statut === 'planifiee' || statut === 'en_cours') && (() => {
+        const assigned = ((intervention as any).interventions_techniciens ?? [])
+        const assignedIds = new Set(assigned.map((t: any) => t.technicien_id))
+        const available = (allTechs as any[]).filter((t) => !assignedIds.has(t.techId))
+        const statutLabel: Record<string, string> = { en_attente: 'En attente', accepte: 'Accepté', refuse: 'Refusé' }
+        const statutCls: Record<string, string> = {
+          en_attente: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+          accepte: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+          refuse: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+        }
+        return (
+          <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2"><Users size={15} /> Techniciens affectés</h2>
+            {assigned.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun technicien affecté.</p>
+            ) : (
+              <div className="space-y-2">
+                {assigned.map((t: any) => (
+                  <div key={t.technicien_id} className="flex items-center gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2">
+                    <span className="text-sm text-foreground flex-1 truncate">
+                      {`${t.techniciens?.utilisateurs?.prenom ?? ''} ${t.techniciens?.utilisateurs?.nom ?? ''}`.trim() || 'Technicien'}
+                    </span>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${statutCls[t.statut_affectation] ?? ''}`}>
+                      {statutLabel[t.statut_affectation] ?? t.statut_affectation}
+                    </span>
+                    <button onClick={() => removeTechAssignment(t.technicien_id)} title="Retirer"
+                      className="p-1 rounded text-destructive hover:bg-destructive/10 transition-colors"><X size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <select value={techToAdd} onChange={(e) => setTechToAdd(e.target.value)}
+                className="flex-1 px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Ajouter un technicien…</option>
+                {available.map((t: any) => <option key={t.techId} value={t.techId}>{t.name}</option>)}
+              </select>
+              <button onClick={addTechAssignment} disabled={!techToAdd}
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60">
+                <Plus size={15} /> Ajouter
+              </button>
+            </div>
+          </section>
+        )
+      })()}
 
       {/* ——— Actions Admin ——— */}
       {(role === 'admin' || role === 'super_admin') && (

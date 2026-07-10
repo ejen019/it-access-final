@@ -16,6 +16,12 @@
 
 @import "tailwindcss";
 
+/* Mode sombre piloté par la classe .dark (bouton de l'app), et NON par le
+   réglage du système d'exploitation. Sans cette ligne, Tailwind v4 active les
+   styles `dark:` selon prefers-color-scheme de l'OS → badges/fonds sombres
+   incohérents en mode clair. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ----- Design tokens IT-Access (Tailwind v4) -----
    @theme inline : les custom properties CSS sont injectées
    directement dans les classes générées par Tailwind.

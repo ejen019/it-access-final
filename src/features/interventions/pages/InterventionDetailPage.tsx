@@ -336,6 +336,7 @@ export function InterventionDetailPage() {
   const [closing, setClosing] = useState(false)
   const [notesComplementaires, setNotesComplementaires] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [outcome, setOutcome] = useState<'repare' | 'irreparable'>('repare')
 
   const [validationCode, setValidationCode] = useState('')
   const [codeError, setCodeError] = useState(false)
@@ -445,6 +446,14 @@ export function InterventionDetailPage() {
         { onConflict: 'intervention_id' }
       )
       await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
+      // Équipement irréparable → marqué détruit (constaté par le technicien).
+      if (outcome === 'irreparable') {
+        const equipIds = ((intervention as any).interventions_equipements ?? [])
+          .map((ie: any) => ie.equipement_id).filter(Boolean)
+        if (equipIds.length) {
+          await supabase.from('equipements').update({ etat: 'detruit' }).in('id', equipIds)
+        }
+      }
       await updateStatus.mutateAsync({ id: id!, statut: 'terminee' })
     } finally {
       setClosing(false)
@@ -862,6 +871,32 @@ export function InterventionDetailPage() {
                   )}
                 </div>
               </div>
+
+              {/* Résultat de l'intervention (seulement si en_cours) */}
+              {statut === 'en_cours' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase">Résultat de l'intervention</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setOutcome('repare')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                        outcome === 'repare' ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-muted text-muted-foreground border-transparent'
+                      }`}>
+                      ✓ Réparé
+                    </button>
+                    <button type="button" onClick={() => setOutcome('irreparable')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                        outcome === 'irreparable' ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300' : 'bg-muted text-muted-foreground border-transparent'
+                      }`}>
+                      ✕ Irréparable (à détruire)
+                    </button>
+                  </div>
+                  {outcome === 'irreparable' && (
+                    <p className="text-[11px] text-red-600 dark:text-red-400">
+                      L'équipement sera marqué <strong>Détruit</strong>. Précisez la raison dans le rapport.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Boutons actions (seulement si en_cours) */}
               {statut === 'en_cours' && (

@@ -79,7 +79,7 @@ export interface Contrat {
 }
 
 // ----- Équipement (table: equipements) -----
-export type EtatEquipement = 'operationnel' | 'maintenance' | 'en_panne'
+export type EtatEquipement = 'operationnel' | 'maintenance' | 'en_panne' | 'detruit'
 
 export interface Equipement {
   id: string

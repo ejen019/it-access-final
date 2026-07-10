@@ -63,7 +63,7 @@ export type EquipementInput = {
   notes?: string
   photos?: string[]
   cree_par: string
-  etat?: 'operationnel' | 'maintenance' | 'en_panne'
+  etat?: 'operationnel' | 'maintenance' | 'en_panne' | 'detruit'
 }
 
 // Contrôle du quota d'équipements selon le plan d'abonnement du client.

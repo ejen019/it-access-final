@@ -133,7 +133,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
       photos,
       cree_par: profile!.id,
       etat: canEditEtat
-        ? (form.etat as 'operationnel' | 'maintenance' | 'en_panne')
+        ? (form.etat as 'operationnel' | 'maintenance' | 'en_panne' | 'detruit')
         : (isEdit ? (equipment!.etat) : 'maintenance'),
     }
 
@@ -254,6 +254,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
             <option value="operationnel">Opérationnel</option>
             <option value="maintenance">En validation / maintenance</option>
             <option value="en_panne">En panne</option>
+            <option value="detruit">Détruit</option>
           </select>
         </div>
       )}

@@ -363,12 +363,13 @@ export function useSignerIntervention() {
         date_fin: now,
       }, { onConflict: 'intervention_id' })
 
-      // 4. Remettre les équipements en opérationnel
+      // 4. Remettre les équipements en opérationnel (sauf ceux marqués détruits)
       if (equipementIds.length) {
         await supabase
           .from('equipements')
           .update({ etat: 'operationnel' })
           .in('id', equipementIds)
+          .neq('etat', 'detruit')
       }
 
       // 5. Notifications

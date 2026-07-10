@@ -348,9 +348,10 @@ export function EquipmentPassportPage() {
           <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
             equipment.etat === 'operationnel' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
             equipment.etat === 'maintenance'  ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+            equipment.etat === 'detruit'      ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' :
             'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
           }`}>
-            ● {equipment.etat === 'operationnel' ? 'Opérationnel' : equipment.etat === 'maintenance' ? 'Maintenance' : 'En panne'}
+            ● {equipment.etat === 'operationnel' ? 'Opérationnel' : equipment.etat === 'maintenance' ? 'Maintenance' : equipment.etat === 'detruit' ? 'Détruit' : 'En panne'}
           </span>
           {canSignalPanne && (
             <button

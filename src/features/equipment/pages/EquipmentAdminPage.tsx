@@ -20,12 +20,13 @@ async function fetchClients() {
 }
 
 const ETAT_LABEL: Record<string, string> = {
-  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne',
+  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne', detruit: 'Détruit',
 }
 const ETAT_CLASS: Record<string, string> = {
   operationnel: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
   maintenance: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
   en_panne: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+  detruit: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 
 export function EquipmentAdminPage() {
@@ -223,6 +224,7 @@ export function EquipmentAdminPage() {
           <option value="operationnel">Opérationnel</option>
           <option value="maintenance">Maintenance</option>
           <option value="en_panne">En panne</option>
+          <option value="detruit">Détruit</option>
         </select>
       </div>
 

@@ -167,9 +167,11 @@ export function SudoEquipmentPage() {
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                           : eq.etat === 'maintenance'
                           ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : eq.etat === 'detruit'
+                          ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                           : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
-                        {eq.etat === 'operationnel' ? 'Opérationnel' : eq.etat === 'maintenance' ? 'Maintenance' : 'En panne'}
+                        {eq.etat === 'operationnel' ? 'Opérationnel' : eq.etat === 'maintenance' ? 'Maintenance' : eq.etat === 'detruit' ? 'Détruit' : 'En panne'}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">

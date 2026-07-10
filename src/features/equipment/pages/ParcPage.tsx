@@ -26,12 +26,13 @@ async function fetchMyClientId(userId: string): Promise<string | null> {
 }
 
 const ETAT_LABEL: Record<string, string> = {
-  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne',
+  operationnel: 'Opérationnel', maintenance: 'Maintenance', en_panne: 'En panne', detruit: 'Détruit',
 }
 const ETAT_CLASS: Record<string, string> = {
   operationnel: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
   maintenance: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
   en_panne: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+  detruit: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 const URGENCY_BTN: Record<string, string> = {
   faible: 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-700 dark:text-slate-200',
@@ -104,7 +105,7 @@ export function ParcPage() {
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'operationnel' | 'en_panne' | 'maintenance'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'operationnel' | 'en_panne' | 'maintenance' | 'detruit'>('all')
 
   // Sélection multiple / actions groupées
   const [selectMode, setSelectMode] = useState(false)
@@ -162,7 +163,7 @@ export function ParcPage() {
   // Panne groupée : UNE seule intervention liée à tous les équipements sélectionnés (non déjà en panne)
   async function handleBulkPanne() {
     if (!clientId) return
-    const targets = equipment.filter((e) => selectedIds.has(e.id) && e.etat !== 'en_panne')
+    const targets = equipment.filter((e) => selectedIds.has(e.id) && e.etat !== 'en_panne' && e.etat !== 'detruit')
     if (targets.length === 0) { setShowBulkPanne(false); return }
     setBulkLoading(true)
     try {
@@ -282,7 +283,7 @@ export function ParcPage() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {(['all', 'operationnel', 'maintenance', 'en_panne'] as const).map((s) => (
+          {(['all', 'operationnel', 'maintenance', 'en_panne', 'detruit'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -292,7 +293,7 @@ export function ParcPage() {
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              {s === 'all' ? 'Tous' : s === 'operationnel' ? 'Opérationnels' : s === 'maintenance' ? 'En validation' : 'En panne'}
+              {s === 'all' ? 'Tous' : s === 'operationnel' ? 'Opérationnels' : s === 'maintenance' ? 'En validation' : s === 'detruit' ? 'Détruits' : 'En panne'}
             </button>
           ))}
         </div>

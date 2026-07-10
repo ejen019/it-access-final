@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   ArrowLeft, AlertTriangle, Play, PenLine, CheckCircle2,
-  Camera, Loader2, Download, Ban, Wrench, Monitor, Users,
+  Camera, Loader2, Download, Ban, Wrench, Monitor, Users, Star,
 } from 'lucide-react'
 import SignatureCanvas from 'react-signature-canvas'
 import jsPDF from 'jspdf'
@@ -337,6 +337,22 @@ export function InterventionDetailPage() {
   const [notesComplementaires, setNotesComplementaires] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [outcome, setOutcome] = useState<'repare' | 'irreparable'>('repare')
+  const [noteValue, setNoteValue] = useState(0)
+  const [noteComment, setNoteComment] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
+  async function handleSaveNote() {
+    if (noteValue < 1) return
+    setSavingNote(true)
+    try {
+      await supabase.from('interventions')
+        .update({ note_satisfaction: noteValue, note_commentaire: noteComment || null })
+        .eq('id', id!)
+      queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
+    } finally {
+      setSavingNote(false)
+    }
+  }
 
   const [validationCode, setValidationCode] = useState('')
   const [codeError, setCodeError] = useState(false)
@@ -739,6 +755,48 @@ export function InterventionDetailPage() {
               Télécharger le compte rendu PDF
             </button>
           )}
+
+          {/* Satisfaction — notation par le client, visible par tous */}
+          {(() => {
+            const noted = (intervention as any).note_satisfaction != null
+            if (role === 'client' && !noted) {
+              return (
+                <div className="border-t border-green-200 dark:border-green-800 pt-4 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Votre satisfaction</p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} type="button" onClick={() => setNoteValue(n)} className="p-0.5">
+                        <Star size={26} className={n <= noteValue ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/40'} />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea value={noteComment} onChange={(e) => setNoteComment(e.target.value)} rows={2}
+                    placeholder="Un commentaire ? (optionnel)"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+                  <button onClick={handleSaveNote} disabled={savingNote || noteValue < 1}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60 transition-colors">
+                    {savingNote ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />} Envoyer mon avis
+                  </button>
+                </div>
+              )
+            }
+            if (noted) {
+              return (
+                <div className="border-t border-green-200 dark:border-green-800 pt-4 space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Satisfaction client</p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} size={20} className={n <= (intervention as any).note_satisfaction ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'} />
+                    ))}
+                  </div>
+                  {(intervention as any).note_commentaire && (
+                    <p className="text-sm text-foreground italic">« {(intervention as any).note_commentaire} »</p>
+                  )}
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {/* Notes complémentaires — technicien uniquement */}
           {(role === 'technicien' || role === 'admin' || role === 'super_admin') && (

@@ -467,6 +467,8 @@ export type Database = {
           description: string
           id: string
           modifie_le: string
+          note_commentaire: string | null
+          note_satisfaction: number | null
           photos: string[]
           planifie_le: string | null
           signee_le: string | null
@@ -483,6 +485,8 @@ export type Database = {
           description: string
           id?: string
           modifie_le?: string
+          note_commentaire?: string | null
+          note_satisfaction?: number | null
           photos?: string[]
           planifie_le?: string | null
           signee_le?: string | null
@@ -499,6 +503,8 @@ export type Database = {
           description?: string
           id?: string
           modifie_le?: string
+          note_commentaire?: string | null
+          note_satisfaction?: number | null
           photos?: string[]
           planifie_le?: string | null
           signee_le?: string | null

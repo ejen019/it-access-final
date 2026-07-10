@@ -29,6 +29,9 @@ export default defineConfig({
       workbox: {
         // Mise en cache de tous les assets statiques (JS, CSS, HTML, images)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // SPA : toute navigation hors-ligne sert l'app en cache (index.html)
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /supabase\.co/],
         // Stratégie réseau pour les appels Supabase : NetworkFirst (online) + cache (offline)
         runtimeCaching: [
           {

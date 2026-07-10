@@ -22,6 +22,9 @@ const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5,
       retry: 1,
       refetchOnWindowFocus: false,
+      // offlineFirst : la requête est tentée même hors ligne — le service worker
+      // (NetworkFirst) sert alors les données mises en cache → consultation offline.
+      networkMode: 'offlineFirst',
     },
   },
 })

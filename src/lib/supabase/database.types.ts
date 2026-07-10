@@ -784,6 +784,7 @@ export type Database = {
           notes_complementaires: string | null
           pieces_remplacees: string | null
           rapport_travaux: string | null
+          resultat: string | null
           url_pdf: string | null
           url_signature: string | null
         }
@@ -797,6 +798,7 @@ export type Database = {
           notes_complementaires?: string | null
           pieces_remplacees?: string | null
           rapport_travaux?: string | null
+          resultat?: string | null
           url_pdf?: string | null
           url_signature?: string | null
         }
@@ -810,6 +812,7 @@ export type Database = {
           notes_complementaires?: string | null
           pieces_remplacees?: string | null
           rapport_travaux?: string | null
+          resultat?: string | null
           url_pdf?: string | null
           url_signature?: string | null
         }

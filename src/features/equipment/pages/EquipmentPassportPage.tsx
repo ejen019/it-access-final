@@ -35,10 +35,11 @@ const STATUS_LABEL: Record<string, string> = {
   planifiee: 'Planifiée', en_cours: 'En cours', terminee: 'À signer', signee: 'Clôturée', annulee: 'Annulée',
 }
 
-function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () => void }) {
+function SignalPanneModal({ equipment, onClose, mode = 'panne' }: { equipment: any; onClose: () => void; mode?: 'panne' | 'intervention' }) {
   const { profile } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isPanne = mode === 'panne'
 
   const [description, setDescription] = useState('')
   const [urgence, setUrgence] = useState<'faible' | 'moyenne' | 'critique'>('moyenne')
@@ -57,15 +58,16 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
 
     try {
       // L'affectation des techniciens se fait à la planification par l'admin.
-      // La panne crée une intervention non assignée + notifie les admins.
-
-      // Mettre l'équipement en panne
-      await supabase.from('equipements').update({ etat: 'en_panne' }).eq('id', equipment.id)
+      // Une panne met l'équipement en panne ; une demande d'intervention sur un
+      // équipement détruit ne change pas son état (il reste détruit jusqu'à réévaluation).
+      if (isPanne) {
+        await supabase.from('equipements').update({ etat: 'en_panne' }).eq('id', equipment.id)
+      }
 
       // Créer l'intervention
       const { data: intervention } = await supabase.from('interventions').insert({
         client_id: equipment.client_id,
-        titre: `Panne — ${equipment.nom}`,
+        titre: `${isPanne ? 'Panne' : 'Intervention'} — ${equipment.nom}`,
         description,
         urgence,
         statut: 'planifiee',
@@ -91,7 +93,7 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
             admins.map((a: any) => ({
               utilisateur_id: a.id,
               type: 'nouvelle_intervention',
-              titre: `Panne signalée — ${equipment.clients?.nom_entreprise}`,
+              titre: `${isPanne ? 'Panne signalée' : 'Intervention demandée'} — ${equipment.clients?.nom_entreprise}`,
               corps: `${equipment.nom} : ${description.slice(0, 80)}`,
               lien: '/admin/interventions',
             }))
@@ -116,17 +118,17 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
     >
       <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 pt-5 pb-3 border-b border-border">
-          <h2 className="font-semibold text-foreground">Signaler une panne</h2>
+          <h2 className="font-semibold text-foreground">{isPanne ? 'Signaler une panne' : 'Demander une intervention'}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">{equipment.nom}</p>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Description de la panne *</label>
+            <label className="text-sm font-medium text-foreground">{isPanne ? 'Description de la panne *' : 'Motif de l\'intervention *'}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required rows={3}
-              placeholder="Décrivez le problème observé…"
+              placeholder={isPanne ? 'Décrivez le problème observé…' : 'Ex : nouvelle tentative de réparation…'}
               className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
@@ -170,7 +172,7 @@ function SignalPanneModal({ equipment, onClose }: { equipment: any; onClose: () 
             </button>
             <button type="submit" disabled={isLoading}
               className="flex-1 px-4 py-2.5 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium transition-colors">
-              {isLoading ? 'Envoi…' : 'Signaler'}
+              {isLoading ? 'Envoi…' : isPanne ? 'Signaler' : 'Demander'}
             </button>
           </div>
         </form>
@@ -188,6 +190,7 @@ export function EquipmentPassportPage() {
   const [showQr, setShowQr] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [showPanne, setShowPanne] = useState(false)
+  const [panneMode, setPanneMode] = useState<'panne' | 'intervention'>('panne')
   const [remettrePending, setRemettrePending] = useState(false)
   const [showDeleteRequest, setShowDeleteRequest] = useState(false)
   const [deleteReqPending, setDeleteReqPending] = useState(false)
@@ -355,11 +358,20 @@ export function EquipmentPassportPage() {
           </span>
           {canSignalPanne && (
             <button
-              onClick={() => setShowPanne(true)}
+              onClick={() => { setPanneMode('panne'); setShowPanne(true) }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-full text-sm font-medium hover:bg-destructive/20 transition-colors"
             >
               <AlertTriangle size={14} />
               Signaler une panne
+            </button>
+          )}
+          {isClient && equipment.etat === 'detruit' && (
+            <button
+              onClick={() => { setPanneMode('intervention'); setShowPanne(true) }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium hover:bg-primary/20 transition-colors"
+            >
+              <Wrench size={14} />
+              Demander une intervention
             </button>
           )}
           {canRemettreEnService && (
@@ -569,7 +581,7 @@ export function EquipmentPassportPage() {
 
       {/* Modal panne */}
       {showPanne && (
-        <SignalPanneModal equipment={equipment} onClose={() => setShowPanne(false)} />
+        <SignalPanneModal equipment={equipment} mode={panneMode} onClose={() => setShowPanne(false)} />
       )}
     </div>
   )

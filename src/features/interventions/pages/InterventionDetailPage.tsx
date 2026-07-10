@@ -388,6 +388,7 @@ export function InterventionDetailPage() {
       setPartsReplaced(rapport?.pieces_remplacees ?? '')
       setTechPhotos((intervention as any).photos ?? [])
       setNotesComplementaires((rapport as any)?.notes_complementaires ?? '')
+      setOutcome((rapport as any)?.resultat === 'irreparable' ? 'irreparable' : 'repare')
     }
   }, [(intervention as any)?.id])
 
@@ -441,19 +442,13 @@ export function InterventionDetailPage() {
     if (!workReport.trim()) return
     setClosing(true)
     try {
+      // Le résultat (réparé / irréparable) est enregistré dans le rapport.
+      // L'état 'detruit' de l'équipement n'est appliqué qu'à la signature du client.
       await supabase.from('rapports_intervention').upsert(
-        { intervention_id: id!, rapport_travaux: workReport, pieces_remplacees: partsReplaced, date_fin: new Date().toISOString() },
+        { intervention_id: id!, rapport_travaux: workReport, pieces_remplacees: partsReplaced, resultat: outcome, date_fin: new Date().toISOString() },
         { onConflict: 'intervention_id' }
       )
       await supabase.from('interventions').update({ photos: techPhotos }).eq('id', id!)
-      // Équipement irréparable → marqué détruit (constaté par le technicien).
-      if (outcome === 'irreparable') {
-        const equipIds = ((intervention as any).interventions_equipements ?? [])
-          .map((ie: any) => ie.equipement_id).filter(Boolean)
-        if (equipIds.length) {
-          await supabase.from('equipements').update({ etat: 'detruit' }).in('id', equipIds)
-        }
-      }
       await updateStatus.mutateAsync({ id: id!, statut: 'terminee' })
     } finally {
       setClosing(false)

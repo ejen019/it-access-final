@@ -363,13 +363,13 @@ export function useSignerIntervention() {
         date_fin: now,
       }, { onConflict: 'intervention_id' })
 
-      // 4. Remettre les équipements en opérationnel (sauf ceux marqués détruits)
+      // 4. État final des équipements décidé À LA SIGNATURE, selon le résultat
+      //    du rapport : irréparable → détruit, sinon → opérationnel.
       if (equipementIds.length) {
-        await supabase
-          .from('equipements')
-          .update({ etat: 'operationnel' })
-          .in('id', equipementIds)
-          .neq('etat', 'detruit')
+        const { data: rap } = await supabase
+          .from('rapports_intervention').select('resultat').eq('intervention_id', id).maybeSingle()
+        const nouvelEtat = (rap?.resultat === 'irreparable') ? 'detruit' : 'operationnel'
+        await supabase.from('equipements').update({ etat: nouvelEtat }).in('id', equipementIds)
       }
 
       // 5. Notifications

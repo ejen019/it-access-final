@@ -60,6 +60,7 @@ export type EquipementInput = {
   emplacement?: string
   date_achat?: string
   fin_garantie?: string
+  prochaine_maintenance?: string
   notes?: string
   photos?: string[]
   cree_par: string

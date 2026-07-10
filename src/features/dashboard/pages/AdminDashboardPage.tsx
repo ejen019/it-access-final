@@ -2,10 +2,10 @@
 // AdminDashboardPage — Vue d'ensemble Administrateur
 // Style unifié avec le SudoDashboard : flat, compact, propre.
 // =============================================================
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Users, Monitor, Wrench, FileText,
-  Clock, AlertTriangle, ArrowRight,
+  Clock, AlertTriangle, ArrowRight, CalendarClock,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
@@ -90,6 +90,7 @@ function getGreeting() {
 
 export function AdminDashboardPage() {
   const { profile } = useAuthStore()
+  const queryClient = useQueryClient()
 
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard-stats'],
@@ -97,6 +98,43 @@ export function AdminDashboardPage() {
     refetchInterval: 60_000,
     staleTime: 0,
   })
+
+  // Maintenances préventives arrivées à échéance (rappel in-app)
+  const { data: dueMaint = [] } = useQuery({
+    queryKey: ['maintenance-due'],
+    queryFn: async () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data } = await supabase
+        .from('equipements')
+        .select('id, nom, client_id, prochaine_maintenance, clients(nom_entreprise)')
+        .not('prochaine_maintenance', 'is', null)
+        .lte('prochaine_maintenance', today)
+        .neq('etat', 'detruit')
+        .order('prochaine_maintenance')
+      return data ?? []
+    },
+    staleTime: 0,
+  })
+
+  async function planifierMaintenance(eq: any) {
+    const { data: interv } = await supabase.from('interventions').insert({
+      client_id: eq.client_id,
+      titre: `Maintenance préventive — ${eq.nom}`,
+      description: 'Maintenance préventive planifiée automatiquement à l\'échéance.',
+      type_planification: 'periodique',
+      urgence: 'faible',
+      statut: 'planifiee',
+      cree_par: profile!.id,
+    }).select().single()
+    if (interv) {
+      await supabase.from('interventions_equipements').insert({ intervention_id: interv.id, equipement_id: eq.id })
+    }
+    // Repousser la prochaine échéance de 6 mois
+    const next = new Date(); next.setMonth(next.getMonth() + 6)
+    await supabase.from('equipements').update({ prochaine_maintenance: next.toISOString().slice(0, 10) }).eq('id', eq.id)
+    queryClient.invalidateQueries({ queryKey: ['maintenance-due'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] })
+  }
 
   if (isLoading) {
     return (
@@ -140,6 +178,34 @@ export function AdminDashboardPage() {
           </Link>
         )}
       </div>
+
+      {/* Rappel : maintenances préventives à réaliser */}
+      {(dueMaint as any[]).length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+            <CalendarClock size={15} />
+            Maintenances préventives à réaliser ({(dueMaint as any[]).length})
+          </h2>
+          <div className="space-y-2">
+            {(dueMaint as any[]).map((eq) => (
+              <div key={eq.id} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{eq.nom}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {eq.clients?.nom_entreprise ?? '—'} · échéance {new Date(eq.prochaine_maintenance).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => planifierMaintenance(eq)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium"
+                >
+                  <Wrench size={13} /> Planifier
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

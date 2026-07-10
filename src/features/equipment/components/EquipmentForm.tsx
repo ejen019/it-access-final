@@ -57,6 +57,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
     emplacement: equipment?.emplacement ?? '',
     date_achat: equipment?.date_achat ?? '',
     fin_garantie: equipment?.fin_garantie ?? '',
+    prochaine_maintenance: (equipment as any)?.prochaine_maintenance ?? '',
     notes: equipment?.notes ?? '',
     etat: equipment?.etat ?? 'operationnel',
   })
@@ -129,6 +130,7 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
       emplacement: form.emplacement || undefined,
       date_achat: form.date_achat || undefined,
       fin_garantie: form.fin_garantie || undefined,
+      prochaine_maintenance: form.prochaine_maintenance || undefined,
       notes: form.notes || undefined,
       photos,
       cree_par: profile!.id,
@@ -241,6 +243,17 @@ export function EquipmentForm({ clientId, equipment, onSuccess, onCancel }: Prop
             className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground">Prochaine maintenance préventive</label>
+        <input
+          type="date"
+          value={form.prochaine_maintenance}
+          onChange={(e) => update('prochaine_maintenance', e.target.value)}
+          className="w-full px-3 py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <p className="text-[11px] text-muted-foreground">Un rappel apparaîtra pour l'administrateur à cette date.</p>
       </div>
 
       {canEditEtat && (

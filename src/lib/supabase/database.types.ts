@@ -403,6 +403,7 @@ export type Database = {
           notes: string | null
           numero_serie: string | null
           photos: string[]
+          prochaine_maintenance: string | null
           qr_code: string
         }
         Insert: {
@@ -421,6 +422,7 @@ export type Database = {
           notes?: string | null
           numero_serie?: string | null
           photos?: string[]
+          prochaine_maintenance?: string | null
           qr_code: string
         }
         Update: {
@@ -439,6 +441,7 @@ export type Database = {
           notes?: string | null
           numero_serie?: string | null
           photos?: string[]
+          prochaine_maintenance?: string | null
           qr_code?: string
         }
         Relationships: [

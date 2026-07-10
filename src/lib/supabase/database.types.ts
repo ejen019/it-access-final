@@ -558,14 +558,17 @@ export type Database = {
         Row: {
           intervention_id: string
           technicien_id: string
+          statut_affectation: string
         }
         Insert: {
           intervention_id: string
           technicien_id: string
+          statut_affectation?: string
         }
         Update: {
           intervention_id?: string
           technicien_id?: string
+          statut_affectation?: string
         }
         Relationships: [
           {

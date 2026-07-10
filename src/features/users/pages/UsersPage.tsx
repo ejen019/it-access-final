@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2, XCircle, Trash2,
-  Search, Building2, Wrench, Clock,
+  Search, Building2, Wrench, Clock, Plus, X, Loader2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -82,12 +82,113 @@ function Badge({ label, variant }: { label: string; variant: 'success' | 'warnin
   )
 }
 
+// Gestion des affectations d'un technicien à des entreprises (quota max_techniciens par entreprise)
+function AffectationModal({ techId, userId, name, onClose }: { techId: string; userId: string; name: string; onClose: () => void }) {
+  const { profile: me } = useAuthStore()
+  const queryClient = useQueryClient()
+  const [selectedClient, setSelectedClient] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-affect-list'],
+    queryFn: async () => (await supabase.from('clients').select('id, nom_entreprise').order('nom_entreprise')).data ?? [],
+  })
+  const { data: affectations = [], refetch } = useQuery({
+    queryKey: ['affectations-tech', techId],
+    queryFn: async () => (await supabase.from('affectations').select('id, client_id, clients(nom_entreprise)').eq('technicien_id', techId)).data ?? [],
+  })
+
+  const affectedIds = new Set((affectations as any[]).map((a) => a.client_id))
+
+  async function affecter() {
+    if (!selectedClient) return
+    setError(null); setSaving(true)
+    try {
+      if (affectedIds.has(selectedClient)) { setError('Ce technicien est déjà affecté à cette entreprise.'); return }
+      // Contrôle du quota de techniciens de l'entreprise (plan)
+      const { data: contrat } = await supabase
+        .from('contrats').select('abonnements(plan, max_techniciens)')
+        .eq('client_id', selectedClient).eq('est_actif', true).maybeSingle()
+      const abo = (contrat as any)?.abonnements
+      if (abo?.max_techniciens != null) {
+        const { count } = await supabase.from('affectations').select('*', { count: 'exact', head: true }).eq('client_id', selectedClient)
+        if ((count ?? 0) >= abo.max_techniciens) {
+          setError(`Limite atteinte : cette entreprise autorise ${abo.max_techniciens} technicien(s) maximum (plan ${abo.plan}).`)
+          return
+        }
+      }
+      await supabase.from('affectations').insert({ technicien_id: techId, client_id: selectedClient, affecte_par: me!.id })
+      await supabase.from('notifications').insert({
+        utilisateur_id: userId, type: 'affectation', titre: 'Nouvelle affectation',
+        corps: 'Vous avez été affecté à une entreprise. Vous pouvez désormais consulter son parc.', lien: '/technicien/dashboard',
+      })
+      setSelectedClient('')
+      await refetch()
+      queryClient.invalidateQueries({ queryKey: ['affectations-tech', techId] })
+    } finally { setSaving(false) }
+  }
+
+  async function retirer(id: string) {
+    await supabase.from('affectations').delete().eq('id', id)
+    await refetch()
+  }
+
+  const dispo = (clients as any[]).filter((c) => !affectedIds.has(c.id))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md space-y-4 p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground">Affecter à des entreprises</h3>
+            <p className="text-xs text-muted-foreground">{name}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-accent"><X size={18} className="text-muted-foreground" /></button>
+        </div>
+
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg px-3 py-2">{error}</div>
+        )}
+
+        <div className="flex gap-2">
+          <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); setError(null) }}
+            className="flex-1 px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="">Choisir une entreprise…</option>
+            {dispo.map((c: any) => <option key={c.id} value={c.id}>{c.nom_entreprise}</option>)}
+          </select>
+          <button onClick={affecter} disabled={!selectedClient || saving}
+            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-60">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Affecter
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Entreprises affectées ({(affectations as any[]).length})</p>
+          {(affectations as any[]).length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune affectation pour l'instant.</p>
+          ) : (
+            (affectations as any[]).map((a) => (
+              <div key={a.id} className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
+                <span className="text-sm text-foreground">{a.clients?.nom_entreprise ?? '—'}</span>
+                <button onClick={() => retirer(a.id)} title="Retirer"
+                  className="p-1 rounded text-destructive hover:bg-destructive/10 transition-colors"><X size={15} /></button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function UsersPage() {
   const { profile: me } = useAuthStore()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('pending')
   const [search, setSearch] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [affectTarget, setAffectTarget] = useState<{ techId: string; userId: string; name: string } | null>(null)
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['users', tab],
@@ -209,6 +310,14 @@ export function UsersPage() {
                             <CheckCircle2 size={16} />
                           </button>
                         )}
+                        {tab === 'technicians' && user.compte_valide && user.techniciens?.id && (
+                          <button
+                            onClick={() => setAffectTarget({ techId: user.techniciens.id, userId: user.id, name: `${user.prenom ?? ''} ${user.nom}`.trim() })}
+                            title="Affecter à des entreprises"
+                            className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors">
+                            <Building2 size={16} />
+                          </button>
+                        )}
                         <button onClick={() => doToggle({ id: user.id, active: user.est_actif })} title={user.est_actif ? 'Désactiver' : 'Réactiver'}
                           className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
                           <XCircle size={16} />
@@ -228,6 +337,15 @@ export function UsersPage() {
           </div>
         )}
       </div>
+
+      {affectTarget && (
+        <AffectationModal
+          techId={affectTarget.techId}
+          userId={affectTarget.userId}
+          name={affectTarget.name}
+          onClose={() => setAffectTarget(null)}
+        />
+      )}
 
       {deleteConfirm && (
         <div

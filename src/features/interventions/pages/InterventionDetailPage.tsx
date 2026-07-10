@@ -8,7 +8,7 @@
 // =============================================================
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   ArrowLeft, AlertTriangle, Play, PenLine, CheckCircle2,
@@ -324,6 +324,7 @@ export function InterventionDetailPage() {
   const canIntervene = role === 'technicien' || role === 'admin' || role === 'super_admin'
 
   const { data: intervention, isLoading } = useDetailIntervention(id)
+  const queryClient = useQueryClient()
   const updateStatus = useChangerStatutIntervention()
   const signMutation = useSignerIntervention()
 
@@ -348,6 +349,36 @@ export function InterventionDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const rapport = (intervention as any)?.rapports_intervention?.[0]
+
+  // Affectation du technicien connecté sur cette intervention (accepter/refuser)
+  const myAssignment = ((intervention as any)?.interventions_techniciens ?? [])
+    .find((t: any) => t.techniciens?.utilisateur_id === profile?.id)
+  const someRefused = ((intervention as any)?.interventions_techniciens ?? [])
+    .some((t: any) => t.statut_affectation === 'refuse')
+
+  async function handleAcceptAssignment() {
+    if (!myAssignment) return
+    await supabase.from('interventions_techniciens')
+      .update({ statut_affectation: 'accepte' })
+      .eq('intervention_id', id!).eq('technicien_id', myAssignment.technicien_id)
+    queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
+  }
+
+  async function handleRefuseAssignment() {
+    if (!myAssignment) return
+    await supabase.from('interventions_techniciens')
+      .update({ statut_affectation: 'refuse' })
+      .eq('intervention_id', id!).eq('technicien_id', myAssignment.technicien_id)
+    const { data: admins } = await supabase.from('utilisateurs').select('id').in('role', ['admin', 'super_admin'])
+    if (admins?.length) {
+      await supabase.from('notifications').insert(admins.map((a: any) => ({
+        utilisateur_id: a.id, type: 'intervention_refusee', titre: 'Intervention refusée',
+        corps: `Un technicien a refusé « ${(intervention as any).titre} ». À réaffecter.`,
+        lien: `/admin/interventions/${id}`,
+      })))
+    }
+    queryClient.invalidateQueries({ queryKey: ['intervention-detail', id] })
+  }
 
   // Pré-remplir le rapport
   useEffect(() => {
@@ -595,6 +626,46 @@ export function InterventionDetailPage() {
         </section>
       )}
 
+      {/* ——— Technicien : accepter / refuser l'affectation ——— */}
+      {role === 'technicien' && myAssignment && myAssignment.statut_affectation === 'en_attente' && statut === 'planifiee' && (
+        <section className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-xl p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-blue-700 dark:text-blue-300">Intervention à accepter</h2>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Cette intervention vous a été affectée. Acceptez-la pour pouvoir la démarrer, ou refusez-la (un administrateur la réaffectera).
+          </p>
+          <div className="flex gap-3">
+            <button onClick={handleAcceptAssignment}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+              <CheckCircle2 size={15} /> Accepter
+            </button>
+            <button onClick={handleRefuseAssignment}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-destructive text-destructive rounded-lg text-sm font-medium hover:bg-destructive/10 transition-colors">
+              <Ban size={15} /> Refuser
+            </button>
+          </div>
+        </section>
+      )}
+      {role === 'technicien' && myAssignment && myAssignment.statut_affectation === 'refuse' && (
+        <section className="bg-muted border border-border rounded-xl p-4 text-sm text-muted-foreground">
+          Vous avez refusé cette intervention. Elle est en attente de réaffectation par un administrateur.
+        </section>
+      )}
+
+      {/* ——— Admin : un technicien a refusé ——— */}
+      {(role === 'admin' || role === 'super_admin') && someRefused && statut !== 'signee' && statut !== 'annulee' && (
+        <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400" />
+            <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-400">Intervention refusée par un technicien</h2>
+          </div>
+          <p className="text-xs text-amber-600 dark:text-amber-400">Vous pouvez affecter un autre technicien.</p>
+          <button onClick={() => setShowValiderModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors">
+            <Users size={15} /> Réaffecter
+          </button>
+        </section>
+      )}
+
       {/* ═══ VUE UNIFIÉE — INTERVENTION CLÔTURÉE (signee) ═══ */}
       {statut === 'signee' && (
         <section className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-4">
@@ -705,7 +776,7 @@ export function InterventionDetailPage() {
       )}
 
       {/* ——— Section Technicien (aussi accessible à l'admin) ——— */}
-      {canIntervene && statut !== 'signee' && (
+      {canIntervene && statut !== 'signee' && !(role === 'technicien' && myAssignment && myAssignment.statut_affectation !== 'accepte') && (
         <>
           {/* Démarrer — masqué pour admin si aucun technicien assigné (en attente de validation) */}
           {statut === 'planifiee' && !(enAttente && (role === 'admin' || role === 'super_admin')) && (

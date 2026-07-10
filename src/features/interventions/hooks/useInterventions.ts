@@ -138,7 +138,7 @@ export function useDetailIntervention(id: string | undefined) {
           *,
           clients(id, utilisateur_id, nom_entreprise, code_signature, telephone, adresse, ville),
           interventions_equipements(equipement_id, equipements(nom, modele, numero_serie)),
-          interventions_techniciens(technicien_id, techniciens(id, utilisateur_id, specialite, utilisateurs(nom, prenom, email))),
+          interventions_techniciens(technicien_id, statut_affectation, techniciens(id, utilisateur_id, specialite, utilisateurs(nom, prenom, email))),
           rapports_intervention(*)
         `)
         .eq('id', id)

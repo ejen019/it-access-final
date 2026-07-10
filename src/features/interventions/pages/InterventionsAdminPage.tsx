@@ -4,9 +4,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, Clock, Ban, Wrench, AlertTriangle, X } from 'lucide-react'
+import { Plus, Search, Clock, Ban, Wrench, AlertTriangle, X, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
+import { downloadCsv } from '@/lib/utils/export'
 import {
   useToutesInterventions,
   useCreerIntervention,
@@ -441,13 +442,29 @@ export function InterventionsAdminPage() {
             {stats.total} actives · {stats.en_cours} en cours · {stats.terminee} terminées · {stats.signee} signées
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2.5 gradient-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
-        >
-          <Plus size={16} />
-          Nouvelle intervention
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => downloadCsv(`interventions-${new Date().toISOString().slice(0, 10)}.csv`, (filtered as any[]).map((i) => ({
+              Titre: i.titre, Entreprise: i.clients?.nom_entreprise ?? '',
+              Type: TYPE_LABEL[i.type_planification ?? 'reparation'] ?? '',
+              Urgence: URGENCY_LABEL[i.urgence] ?? i.urgence,
+              Statut: STATUS_LABEL[displayStatut(i)] ?? displayStatut(i),
+              Date: formatDate(i.cree_le),
+            })))}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-accent transition-colors disabled:opacity-60"
+          >
+            <Download size={16} />
+            Exporter
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2.5 gradient-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+          >
+            <Plus size={16} />
+            Nouvelle intervention
+          </button>
+        </div>
       </div>
 
       {/* Mini stats */}

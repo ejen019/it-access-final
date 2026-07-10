@@ -4,9 +4,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Monitor, Trash2, QrCode, Upload, Pencil, CheckCircle2, X } from 'lucide-react'
+import { Plus, Search, Monitor, Trash2, QrCode, Upload, Pencil, CheckCircle2, X, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth.store'
+import { downloadCsv } from '@/lib/utils/export'
 import { useTousEquipements, useSupprimerEquipement, useModifierEquipement } from '../hooks/useEquipment'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { BulkImportModal } from '../components/BulkImportModal'
@@ -125,6 +126,17 @@ export function EquipmentAdminPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Parc informatique de toutes les entreprises</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => downloadCsv(`equipements-${new Date().toISOString().slice(0, 10)}.csv`, (filtered as any[]).map((e) => ({
+              Nom: e.nom, Modele: e.modele ?? '', 'N° série': e.numero_serie ?? '', Categorie: e.categorie ?? '',
+              Etat: ETAT_LABEL[e.etat] ?? e.etat, Entreprise: e.clients?.nom_entreprise ?? '', Emplacement: e.emplacement ?? '',
+            })))}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-colors disabled:opacity-60"
+          >
+            <Download size={16} />
+            Exporter
+          </button>
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-colors"
